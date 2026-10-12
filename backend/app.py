@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", r"C:\Users\Administrator\Downloads"))
+S3_SOURCE = SOURCE / "s3_storage.py"
 app = FastAPI(title="SteelMind Tool Gateway", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 TOOL_SPECS = {
@@ -26,6 +27,58 @@ TOOL_SPECS = {
 }
 TOOLS: dict[str, Any] = {}
 LOAD_ERRORS: dict[str, str] = {}
+
+
+def _install_coze_compat() -> None:
+    """让用户提供的 Coze 工具可在本地 torch 环境复用。"""
+    if "coze_coding_utils.log.write_log" not in sys.modules:
+        utils = sys.modules.setdefault("coze_coding_utils", types.ModuleType("coze_coding_utils"))
+        log = sys.modules.setdefault("coze_coding_utils.log", types.ModuleType("coze_coding_utils.log"))
+        write_log = types.ModuleType("coze_coding_utils.log.write_log")
+        from contextvars import ContextVar
+        write_log.request_context = ContextVar("request_context", default=None)
+        sys.modules["coze_coding_utils.log.write_log"] = write_log
+        setattr(log, "write_log", write_log)
+        setattr(utils, "log", log)
+    if "coze_coding_utils.runtime_ctx.context" not in sys.modules:
+        runtime_ctx = sys.modules.setdefault("coze_coding_utils.runtime_ctx", types.ModuleType("coze_coding_utils.runtime_ctx"))
+        context = types.ModuleType("coze_coding_utils.runtime_ctx.context")
+        context.new_context = lambda **kwargs: kwargs
+        sys.modules["coze_coding_utils.runtime_ctx.context"] = context
+        setattr(runtime_ctx, "context", context)
+
+    identity = sys.modules.setdefault("coze_workload_identity", types.ModuleType("coze_workload_identity"))
+    if not hasattr(identity, "Client"):
+        class Client:
+            def get_project_env_vars(self):
+                return [types.SimpleNamespace(key=k, value=v) for k, v in os.environ.items() if k.startswith("COZE_BUCKET_")]
+
+            def get_access_token(self):
+                token = os.getenv("COZE_WORKLOAD_IDENTITY_TOKEN") or os.getenv("COZE_STORAGE_TOKEN")
+                if not token:
+                    raise RuntimeError("未设置 COZE_WORKLOAD_IDENTITY_TOKEN 或 COZE_STORAGE_TOKEN")
+                return token
+
+            def close(self):
+                return None
+        identity.Client = Client
+
+    if "coze_coding_dev_sdk.s3" not in sys.modules and S3_SOURCE.exists():
+        s3_module = _load_module("s3_storage.py")
+        base = s3_module.S3SyncStorage
+
+        class S3SyncStorage(base):
+            def __init__(self, **kwargs):
+                kwargs["access_key"] = kwargs.get("access_key") or os.getenv("COZE_BUCKET_ACCESS_KEY", "")
+                kwargs["secret_key"] = kwargs.get("secret_key") or os.getenv("COZE_BUCKET_SECRET_KEY", "")
+                kwargs["bucket_name"] = kwargs.get("bucket_name") or os.getenv("COZE_BUCKET_NAME", "")
+                super().__init__(**kwargs)
+
+        sdk = sys.modules.setdefault("coze_coding_dev_sdk", types.ModuleType("coze_coding_dev_sdk"))
+        s3 = types.ModuleType("coze_coding_dev_sdk.s3")
+        s3.S3SyncStorage = S3SyncStorage
+        sys.modules["coze_coding_dev_sdk.s3"] = s3
+        setattr(sdk, "s3", s3)
 
 
 def _load_module(filename: str):
@@ -43,6 +96,7 @@ def _load_module(filename: str):
 
 
 def load_tools() -> None:
+    _install_coze_compat()
     structural = None
     try:
         structural = _load_module("structural_calc.py")
