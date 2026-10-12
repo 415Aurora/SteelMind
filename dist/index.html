@@ -27,6 +27,10 @@
       <a class="btn" href="/steel_modeling_parameters_template.xlsx" download>⇩　下载建模参数 Excel 模板</a>
       <div class="field"><label>上传已填写的 Excel</label><input id="modelFile" type="file" accept=".xlsx,.xls" /></div>
       <div class="hint" id="fileStatus">尚未上传模型参数文件</div>
+      <div class="section-title" style="margin-top:22px">Python 工具服务</div>
+      <div class="field"><label>Tool Gateway URL</label><input id="toolBase" value="http://127.0.0.1:8000" /></div>
+      <button class="btn" id="checkToolService">检查工具服务</button>
+      <div class="hint" id="toolStatus">未连接工具网关</div>
       <div class="section-title" style="margin-top:22px">项目参数</div>
       <div class="field"><label>结构体系</label><select id="system"><option>多层钢框架</option><option>门式刚架</option><option>钢桁架</option><option>钢-混凝土组合结构</option></select></div>
       <div class="field"><label>设计阶段</label><select id="stage"><option>概念设计</option><option>初步设计</option><option>施工图设计</option><option>复核与优化</option></select></div>
@@ -38,7 +42,7 @@
     </main>
     <aside class="right">
       <section class="card tool"><h2>当前设计上下文</h2><p>这些字段会随项目逐步扩展为结构化输入。</p><div class="metric"><span>体系</span><b id="ctxSystem">多层钢框架</b></div><div class="metric"><span>阶段</span><b id="ctxStage">概念设计</b></div><div class="metric"><span>分析内核</span><b>待接入 OpenSeesPy</b></div><div class="notice">安全边界：不自动签发施工图、不替代规范审查、不把未经验证的数值当作设计结论。</div></section>
-      <section class="card tool"><h2>工具箱（扩展位）</h2><p>先提供可点击的任务入口，后续接入 Python 服务。</p><button class="btn toolBtn" data-task="截面初选">▦　截面初选与候选排序</button><button class="btn toolBtn" data-task="荷载组合">◫　荷载工况与组合整理</button><button class="btn toolBtn" data-task="抗震核查">⌁　抗震设计参数核查</button><button class="btn toolBtn" data-task="OpenSeesPy">◉　生成 OpenSeesPy 分析骨架</button></section>
+      <section class="card tool"><h2>Python 工具链</h2><p>连接工具网关后，可直接运行已接入的结构计算、OpenSeesPy 和文件生成工具。</p><div class="field"><label>工具</label><select id="toolName"><option value="calculate_load_combination">荷载组合</option><option value="check_steel_member">钢构件验算</option><option value="opensees_frame_verify">OpenSeesPy 框架验证</option><option value="query_region_params">地区参数检索</option><option value="generate_calculation_book">生成计算书</option><option value="generate_design_outputs">生成设计文件</option></select></div><div class="field"><label>JSON 参数</label><textarea id="toolPayload" rows="8"></textarea></div><button class="btn primary" id="runTool">运行 Python 工具</button><pre id="toolResult" class="hint" style="white-space:pre-wrap;max-height:250px;overflow:auto;margin-top:12px"></pre><button class="btn toolBtn" data-task="截面初选">▦　让 AI 设计截面初选流程</button><button class="btn toolBtn" data-task="抗震核查">⌁　让 AI 设计抗震核查流程</button></section>
       <section class="card tool"><h2>可追溯输出</h2><p>后续将接入规范、计算文件和版本记录。</p><span class="capsule">假设清单</span><span class="capsule">计算日志</span><span class="capsule">规范依据</span><span class="capsule">结果报告</span></section>
     </aside>
   </div>
@@ -48,7 +52,15 @@
 <script>
 const $=s=>document.querySelector(s), chat=$('#chat');
 let uploadedContext='';
-const systemPrompt=`你是 SteelMind，一名钢结构智能设计研究助手。回答时：1) 先明确已知条件、缺失参数和假设；2) 区分概念设计建议、可计算结果和必须由工程师复核的结论；3) 涉及规范时说明规范名称、条文版本待核验，不捏造条文号；4) 优先给出可执行的计算步骤、数据结构和验证方法；5) 不签发施工图、不替代注册结构工程师。当前结构体系：${$('#system').value}；设计阶段：${$('#stage').value}。`;
+const systemPrompt=`你是 SteelMind，一名钢结构智能设计研究助手。回答时：1) 先明确已知条件、缺失参数和假设；2) 区分概念设计建议、可计算结果和必须由工程师复核的结论；3) 涉及规范时说明规范名称、条文版本待核验，不捏造条文号；4) 优先给出可执行的计算步骤、数据结构和验证方法；5) 不签发施工图、不替代注册结构工程师。当前结构体系：${$('#system').value}；设计阶段：${$('#stage').value}。可由工具网关调用的工具包括：query_region_params、calculate_load_combination、check_steel_member、opensees_frame_verify、generate_calculation_book、generate_design_outputs。`;
+const toolDefaults={
+  calculate_load_combination:{dead:120,live:50,wind:20,seismic:80,unit:'kN/m'},
+  check_steel_member:{member_type:'beam',section:'HN400x200',steel:'Q355',span_m:6,Mx_kNm:120,My_kNm:0,V_kn:40,N_kn:0,deflection_mm:12},
+  opensees_frame_verify:{bays:1,stories:1,bay_m:6,height_m:6,beam_section:'HN400x200',column_section:'HW250x250',q_kNm:10,lateral_kn:5},
+  query_region_params:{region:'北京市',items:['抗震设防烈度','基本风压','基本雪压']},
+  generate_calculation_book:{project_name:'钢结构初步设计',project_info:{},calculations:[]},
+  generate_design_outputs:{project_name:'钢结构初步设计',model:{},calculations:[]}
+};
 function add(role,text){const el=document.createElement('div');el.className='msg '+role;el.innerHTML=`<div class="avatar">${role==='user'?'ME':'AI'}</div><div class="bubble"><small>${role==='user'?'你的问题':'SteelMind'}</small>${escapeHtml(text)}</div>`;chat.appendChild(el);chat.scrollTop=chat.scrollHeight}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])).replace(/\n/g,'<br>')}
 function welcome(){add('assistant','你好，我是 SteelMind 初版助手。你可以让我：\n• 梳理钢结构设计输入与缺失参数\n• 制定截面初选、荷载组合和抗震核查流程\n• 生成 OpenSeesPy 分析骨架的需求说明\n\n请先描述结构体系、层数、跨度、荷载和设计目标；如果暂时没有 Token，可以点击“运行无 Token 演示”。')}
@@ -62,6 +74,9 @@ $('#saveConfig').onclick=()=>{sessionStorage.setItem('steelBase',$('#baseUrl').v
 $('#demoBtn').onclick=()=>ask('请演示一次钢结构智能设计任务分解');$('#system').onchange=e=>$('#ctxSystem').textContent=e.target.value;$('#stage').onchange=e=>$('#ctxStage').textContent=e.target.value;
 document.querySelectorAll('.toolBtn').forEach(b=>b.onclick=()=>{ask(`请为“${b.dataset.task}”设计一个初版工作流，列出输入、计算步骤、输出和验证要求。`)});
 $('#modelFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(!window.XLSX){$('#fileStatus').textContent='Excel 读取组件加载失败，请刷新页面后重试';return}try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const sections=[];let total=0;for(const name of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false});if(name==='ReadMe')continue;total+=rows.length;sections.push(`[${name}]\n${JSON.stringify(rows.slice(0,80))}`)}uploadedContext=sections.join('\n').slice(0,18000);$('#fileStatus').textContent=`已读取 ${file.name} · ${wb.SheetNames.length} 个工作表 · ${total} 行`;add('assistant',`已读取模型参数文件“${file.name}”。共识别 ${wb.SheetNames.length} 个工作表、${total} 行数据。接下来你可以让我检查缺失字段、生成建模摘要，或继续进行截面、荷载和分析工作。`)}catch(err){uploadedContext='';$('#fileStatus').textContent='读取失败：'+err.message}});
-if(sessionStorage.getItem('steelBase'))$('#baseUrl').value=sessionStorage.getItem('steelBase');if(sessionStorage.getItem('steelModel'))$('#model').value=sessionStorage.getItem('steelModel');welcome();
+const setToolPayload=()=>{$('#toolPayload').value=JSON.stringify(toolDefaults[$('#toolName').value]||{},null,2)};$('#toolName').onchange=setToolPayload;setToolPayload();
+$('#checkToolService').onclick=async()=>{const base=$('#toolBase').value.replace(/\/$/,'');$('#toolStatus').textContent='检查中…';try{const r=await fetch(base+'/health');const data=await r.json();if(!r.ok)throw new Error(`HTTP ${r.status}`);$('#toolStatus').textContent=`已连接 · ${data.loaded?.length||0} 个工具可用${Object.keys(data.errors||{}).length?' · 有依赖未满足':''}`}catch(e){$('#toolStatus').textContent='连接失败：'+e.message}};
+$('#runTool').onclick=async()=>{let payload;try{payload=JSON.parse($('#toolPayload').value||'{}')}catch(e){$('#toolResult').textContent='JSON 参数格式错误：'+e.message;return}const name=$('#toolName').value,base=$('#toolBase').value.replace(/\/$/,'');$('#toolResult').textContent='运行中…';try{const r=await fetch(`${base}/invoke/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});const data=await r.json();$('#toolResult').textContent=JSON.stringify(data,null,2);if(data.ok)add('assistant',`已运行工具 ${name}。结果已显示在右侧工具面板，请继续告诉我是否需要解释、复核或生成下一步输入。`)}catch(e){$('#toolResult').textContent='调用失败：'+e.message}};
+if(sessionStorage.getItem('steelBase'))$('#baseUrl').value=sessionStorage.getItem('steelBase');if(sessionStorage.getItem('steelModel'))$('#model').value=sessionStorage.getItem('steelModel');if(sessionStorage.getItem('toolBase'))$('#toolBase').value=sessionStorage.getItem('toolBase');$('#saveConfig').addEventListener('click',()=>sessionStorage.setItem('toolBase',$('#toolBase').value));welcome();
 </script>
 </body></html>
