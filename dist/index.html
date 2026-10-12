@@ -23,6 +23,10 @@
       <div class="field"><label>API Token（仅保存在当前浏览器会话）</label><input id="token" type="password" placeholder="sk-..." /></div>
       <button class="btn primary" id="saveConfig">保存连接配置</button>
       <button class="btn ghost" id="demoBtn">运行无 Token 演示</button>
+      <div class="section-title" style="margin-top:22px">模型参数文件</div>
+      <a class="btn" href="/steel_modeling_parameters_template.xlsx" download>⇩　下载建模参数 Excel 模板</a>
+      <div class="field"><label>上传已填写的 Excel</label><input id="modelFile" type="file" accept=".xlsx,.xls" /></div>
+      <div class="hint" id="fileStatus">尚未上传模型参数文件</div>
       <div class="section-title" style="margin-top:22px">项目参数</div>
       <div class="field"><label>结构体系</label><select id="system"><option>多层钢框架</option><option>门式刚架</option><option>钢桁架</option><option>钢-混凝土组合结构</option></select></div>
       <div class="field"><label>设计阶段</label><select id="stage"><option>概念设计</option><option>初步设计</option><option>施工图设计</option><option>复核与优化</option></select></div>
@@ -40,8 +44,10 @@
   </div>
   <div class="footer">SteelMind prototype · token 不会写入站点代码 · 适合作为后续工具编排的前端骨架</div>
 </div>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 const $=s=>document.querySelector(s), chat=$('#chat');
+let uploadedContext='';
 const systemPrompt=`你是 SteelMind，一名钢结构智能设计研究助手。回答时：1) 先明确已知条件、缺失参数和假设；2) 区分概念设计建议、可计算结果和必须由工程师复核的结论；3) 涉及规范时说明规范名称、条文版本待核验，不捏造条文号；4) 优先给出可执行的计算步骤、数据结构和验证方法；5) 不签发施工图、不替代注册结构工程师。当前结构体系：${$('#system').value}；设计阶段：${$('#stage').value}。`;
 function add(role,text){const el=document.createElement('div');el.className='msg '+role;el.innerHTML=`<div class="avatar">${role==='user'?'ME':'AI'}</div><div class="bubble"><small>${role==='user'?'你的问题':'SteelMind'}</small>${escapeHtml(text)}</div>`;chat.appendChild(el);chat.scrollTop=chat.scrollHeight}
 function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])).replace(/\n/g,'<br>')}
@@ -49,12 +55,13 @@ function welcome(){add('assistant','你好，我是 SteelMind 初版助手。你
 async function ask(text){add('user',text);const token=$('#token').value.trim();if(!token){add('assistant',`【演示模式】\n我会将“${text}”拆成：\n1. 建立结构与荷载输入表；\n2. 明确材料、连接、边界和抗震设防参数；\n3. 进行荷载组合、内力分析、构件验算；\n4. 输出假设清单与待复核项。\n\n请补充：层数、层高、柱网/跨度、钢材牌号、恒活荷载、抗震设防烈度、场地类别，以及是否需要 OpenSeesPy 动力分析。`);return}
   $('#statusText').textContent='请求中…';$('#statusDot').style.background='#58d6bb';
   const base=$('#baseUrl').value.replace(/\/$/,'');const model=$('#model').value.trim()||'gpt-4o-mini';
-  try{const r=await fetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({model,temperature:.2,messages:[{role:'system',content:systemPrompt},{role:'user',content:text}]})});const data=await r.json();if(!r.ok)throw new Error(data.error?.message||`HTTP ${r.status}`);add('assistant',data.choices?.[0]?.message?.content||'接口返回为空。');$('#statusText').textContent='已连接模型'}catch(e){add('assistant','连接失败：'+e.message+'\n\n请检查 API Base URL、模型名、Token，以及服务商是否允许浏览器跨域请求。');$('#statusText').textContent='连接失败';$('#statusDot').style.background='#ff8f8f'}
+  try{const context=uploadedContext?`\n\n以下是用户上传的结构化模型参数摘要，请优先基于它工作：\n${uploadedContext}`:'';const r=await fetch(base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({model,temperature:.2,messages:[{role:'system',content:systemPrompt},{role:'user',content:text+context}]})});const data=await r.json();if(!r.ok)throw new Error(data.error?.message||`HTTP ${r.status}`);add('assistant',data.choices?.[0]?.message?.content||'接口返回为空。');$('#statusText').textContent='已连接模型'}catch(e){add('assistant','连接失败：'+e.message+'\n\n请检查 API Base URL、模型名、Token，以及服务商是否允许浏览器跨域请求。');$('#statusText').textContent='连接失败';$('#statusDot').style.background='#ff8f8f'}
 }
 $('#send').onclick=()=>{const t=$('#prompt').value.trim();if(t){$('#prompt').value='';ask(t)}};$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#send').click()}});
 $('#saveConfig').onclick=()=>{sessionStorage.setItem('steelBase',$('#baseUrl').value);sessionStorage.setItem('steelModel',$('#model').value);$('#statusText').textContent='配置已保存到当前会话';$('#statusDot').style.background='#58d6bb'};
 $('#demoBtn').onclick=()=>ask('请演示一次钢结构智能设计任务分解');$('#system').onchange=e=>$('#ctxSystem').textContent=e.target.value;$('#stage').onchange=e=>$('#ctxStage').textContent=e.target.value;
 document.querySelectorAll('.toolBtn').forEach(b=>b.onclick=()=>{ask(`请为“${b.dataset.task}”设计一个初版工作流，列出输入、计算步骤、输出和验证要求。`)});
+$('#modelFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(!window.XLSX){$('#fileStatus').textContent='Excel 读取组件加载失败，请刷新页面后重试';return}try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const sections=[];let total=0;for(const name of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false});if(name==='ReadMe')continue;total+=rows.length;sections.push(`[${name}]\n${JSON.stringify(rows.slice(0,80))}`)}uploadedContext=sections.join('\n').slice(0,18000);$('#fileStatus').textContent=`已读取 ${file.name} · ${wb.SheetNames.length} 个工作表 · ${total} 行`;add('assistant',`已读取模型参数文件“${file.name}”。共识别 ${wb.SheetNames.length} 个工作表、${total} 行数据。接下来你可以让我检查缺失字段、生成建模摘要，或继续进行截面、荷载和分析工作。`)}catch(err){uploadedContext='';$('#fileStatus').textContent='读取失败：'+err.message}});
 if(sessionStorage.getItem('steelBase'))$('#baseUrl').value=sessionStorage.getItem('steelBase');if(sessionStorage.getItem('steelModel'))$('#model').value=sessionStorage.getItem('steelModel');welcome();
 </script>
 </body></html>
