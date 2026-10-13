@@ -235,6 +235,10 @@ class InvokeRequest(BaseModel):
     payload: Any = Field(default_factory=dict)
 
 
+class WorkflowRequest(BaseModel):
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     statuses = _tool_status()
@@ -251,6 +255,30 @@ def health() -> dict[str, Any]:
 @app.get("/tools")
 def list_tools() -> list[dict[str, Any]]:
     return _tool_status()
+
+
+@app.get("/workflow/health")
+def workflow_health() -> dict[str, Any]:
+    try:
+        from langgraph.graph import StateGraph  # noqa: F401
+        return {"available": True, "engine": "LangGraph", "workflow": "steel-design-v1"}
+    except Exception as exc:
+        return {"available": False, "engine": "LangGraph", "error": f"{type(exc).__name__}: {exc}"}
+
+
+@app.post("/workflow/run")
+def run_design_workflow(request: WorkflowRequest) -> dict[str, Any]:
+    """Run parameterized load/model/check/revise/report graph."""
+    try:
+        from workflow import run_workflow
+        result = run_workflow(request.payload)
+        if result.get("status") == "failed":
+            raise HTTPException(status_code=422, detail=result)
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"工作流执行异常：{type(exc).__name__}: {exc}") from exc
 
 
 @app.get("/files/{artifact_id}")
