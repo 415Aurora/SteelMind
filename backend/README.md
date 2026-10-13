@@ -1,29 +1,37 @@
 # SteelMind Python Tool Gateway
 
-这个小型 FastAPI 服务把 `Downloads` 目录中的四个用户工具统一成 HTTP 接口，网页前端通过 `Tool Gateway URL` 调用它。
-
-其中 `s3_storage.py` 提供 Coze 兼容的 S3 存储实现。文件生成工具会把 Excel、Word、DXF 上传后返回签名下载地址。
+FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。
 
 ## 启动
 
+在安装了 Python 依赖的 Anaconda Prompt / PowerShell 中运行：
+
 ```powershell
 conda activate torch
+python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend\requirements.txt"
 $env:STEEL_TOOL_SOURCE = 'C:\Users\Administrator\Downloads'
-# 如需启用文件上传，按 backend/.env.example 设置以下变量
-$env:COZE_BUCKET_ENDPOINT_URL = 'https://...'
-$env:COZE_BUCKET_NAME = '...'
+python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend' --host 127.0.0.1 --port 8000
+```
+
+服务启动后先在浏览器打开 `http://127.0.0.1:8000/health`，再回到 SteelMind 点“检查工具服务”。本机服务绑定 loopback，避免默认暴露到局域网。
+
+## 工具要求与输出
+
+- 荷载组合、钢构件验算：纯计算工具，现由网关提供轻量 LangChain 兼容层，不要求安装 LangChain。
+- OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
+- 地区参数检索：原工具依赖 Coze `SearchClient`。普通本地 Python 环境没有该 Coze 集成时，网关会明确显示未配置，不会把提示文字冒充检索结果。
+- 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
+
+```powershell
+$env:COZE_BUCKET_ENDPOINT_URL = 'https://你的对象存储端点'
+$env:COZE_BUCKET_NAME = '你的bucket'
 $env:COZE_BUCKET_ACCESS_KEY = '...'
 $env:COZE_BUCKET_SECRET_KEY = '...'
 $env:COZE_WORKLOAD_IDENTITY_TOKEN = '...'
-python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend' --host 0.0.0.0 --port 8000
 ```
 
-打开网站后，将工具服务地址设置为 `http://127.0.0.1:8000`，点击“检查工具服务”。
+不要把密钥写入源码或提交到 Git。若启用 Coze S3，网关检测到上述配置与 `boto3` 完整可用时才切换到 S3；否则使用本地文件存储。
 
-## 接口
+## 从线上网页访问
 
-- `GET /health`：查看工具加载状态与依赖错误。
-- `GET /tools`：查看允许调用的工具列表。
-- `POST /invoke/{tool_name}`：请求体为 `{ "payload": { ... } }`，工具内部仍接收 JSON 字符串。
-
-工具网关只允许四个文件中声明的六个工具名。地区参数检索还需要 Coze SearchClient；计算书和设计文件工具需要 `boto3` 以及上述 S3/identity 配置。若配置未完成，服务会在 `/health` 中报告具体原因，不会静默伪造结果。
+线上 HTTPS 页面里的 `127.0.0.1` 指向访问者自己的电脑，不是网站服务器；浏览器也可能阻止 HTTPS 页面访问本地 HTTP 服务。需要在线上使用 Python 工具时，应部署受控的 HTTPS 网关，并将其 URL 填入页面。若跨域来源不同，使用 `STEEL_ALLOWED_ORIGINS` 设置逗号分隔的允许来源。不要把未鉴权的工具网关直接公开到公网。

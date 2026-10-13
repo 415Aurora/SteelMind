@@ -1,4 +1,6 @@
 tools/node_modules/
+.venv/
+backend/artifacts/
 dist/*preview*.png
 dist/*.inspect.ndjson
 *.tar.gz

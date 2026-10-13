@@ -1,41 +1,94 @@
-"""SteelMind tool gateway for the user's allow-listed Python tools."""
+"""SteelMind HTTP gateway for the user's allow-listed structural tools."""
 from __future__ import annotations
 
 import importlib.util
 import json
 import os
+import re
 import sys
 import types
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
-SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", r"C:\Users\Administrator\Downloads"))
+SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", r"C:\Users\Administrator\Downloads")).expanduser()
+ARTIFACT_DIR = Path(os.getenv("STEEL_ARTIFACT_DIR", str(Path(__file__).parent / "artifacts"))).resolve()
+SITE_ORIGIN = "https://steelmind-design-assistant.siwuxiegroup.chatgpt.site"
+DEFAULT_ORIGINS = [SITE_ORIGIN, "http://localhost:8080", "http://127.0.0.1:8080"]
+ALLOWED_ORIGINS = [x.strip() for x in os.getenv("STEEL_ALLOWED_ORIGINS", ",".join(DEFAULT_ORIGINS)).split(",") if x.strip()]
 S3_SOURCE = SOURCE / "s3_storage.py"
-app = FastAPI(title="SteelMind Tool Gateway", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+
+app = FastAPI(title="SteelMind Tool Gateway", version="0.2.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
 TOOL_SPECS = {
     "query_region_params": ("region_params.py", "query_region_params", "联网检索地区抗震、风压和雪压参数"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
-    "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成并上传结构计算书"),
+    "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成结构计算书"),
     "generate_design_outputs": ("generate_design_files.py", "generate_design_outputs", "生成 Excel、Word 和 DXF 设计产物"),
 }
 TOOLS: dict[str, Any] = {}
 LOAD_ERRORS: dict[str, str] = {}
 
 
+class LocalArtifactStorage:
+    """本地对象存储兼容层；无需 S3 即可生成并下载工具产物。"""
+
+    def upload_file(self, *, file_content: bytes, file_name: str, content_type: str = "application/octet-stream", **_: Any) -> str:
+        ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(file_name).name).strip("._") or "artifact.bin"
+        artifact_id = f"{uuid4().hex}_{safe_name}"
+        target = (ARTIFACT_DIR / artifact_id).resolve()
+        if target.parent != ARTIFACT_DIR:
+            raise ValueError("非法产物文件名")
+        target.write_bytes(file_content)
+        return artifact_id
+
+    def generate_presigned_url(self, *, key: str, expire_time: int = 86400, **_: Any) -> str:
+        # 本地链接不是签名链接；有效期参数仅为兼容 Coze/S3 工具接口。
+        base = os.getenv("STEEL_TOOL_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+        return f"{base}/files/{quote(key, safe='_.-')}"
+
+
+def _install_langchain_compat() -> None:
+    """结构工具本身不依赖 LangChain；提供轻量 @tool/.invoke 兼容层。"""
+    try:
+        from langchain.tools import tool as _tool  # noqa: F401
+        return
+    except Exception:
+        package = sys.modules.setdefault("langchain", types.ModuleType("langchain"))
+        tools_module = types.ModuleType("langchain.tools")
+
+        def tool(function):
+            function.invoke = lambda value: function(value if isinstance(value, str) else json.dumps(value, ensure_ascii=False))
+            return function
+
+        tools_module.tool = tool
+        sys.modules["langchain.tools"] = tools_module
+        setattr(package, "tools", tools_module)
+
+
 def _install_coze_compat() -> None:
-    """让用户提供的 Coze 工具可在本地 torch 环境复用。"""
+    """Support the context imports used by the user's Coze-authored functions."""
     if "coze_coding_utils.log.write_log" not in sys.modules:
         utils = sys.modules.setdefault("coze_coding_utils", types.ModuleType("coze_coding_utils"))
         log = sys.modules.setdefault("coze_coding_utils.log", types.ModuleType("coze_coding_utils.log"))
         write_log = types.ModuleType("coze_coding_utils.log.write_log")
-        from contextvars import ContextVar
         write_log.request_context = ContextVar("request_context", default=None)
         sys.modules["coze_coding_utils.log.write_log"] = write_log
         setattr(log, "write_log", write_log)
@@ -61,42 +114,67 @@ def _install_coze_compat() -> None:
 
             def close(self):
                 return None
+
         identity.Client = Client
 
-    if "coze_coding_dev_sdk.s3" not in sys.modules and S3_SOURCE.exists():
-        s3_module = _load_module("s3_storage.py")
-        base = s3_module.S3SyncStorage
+    sdk = sys.modules.setdefault("coze_coding_dev_sdk", types.ModuleType("coze_coding_dev_sdk"))
+    if "coze_coding_dev_sdk.s3" not in sys.modules:
+        s3_module = types.ModuleType("coze_coding_dev_sdk.s3")
+        try:
+            if S3_SOURCE.exists():
+                base = _load_module("s3_storage.py").S3SyncStorage
 
-        class S3SyncStorage(base):
-            def __init__(self, **kwargs):
-                kwargs["access_key"] = kwargs.get("access_key") or os.getenv("COZE_BUCKET_ACCESS_KEY", "")
-                kwargs["secret_key"] = kwargs.get("secret_key") or os.getenv("COZE_BUCKET_SECRET_KEY", "")
-                kwargs["bucket_name"] = kwargs.get("bucket_name") or os.getenv("COZE_BUCKET_NAME", "")
-                super().__init__(**kwargs)
+                class S3SyncStorage(base):
+                    def __init__(self, **kwargs):
+                        kwargs["access_key"] = kwargs.get("access_key") or os.getenv("COZE_BUCKET_ACCESS_KEY", "")
+                        kwargs["secret_key"] = kwargs.get("secret_key") or os.getenv("COZE_BUCKET_SECRET_KEY", "")
+                        kwargs["bucket_name"] = kwargs.get("bucket_name") or os.getenv("COZE_BUCKET_NAME", "")
+                        super().__init__(**kwargs)
 
-        sdk = sys.modules.setdefault("coze_coding_dev_sdk", types.ModuleType("coze_coding_dev_sdk"))
-        s3 = types.ModuleType("coze_coding_dev_sdk.s3")
-        s3.S3SyncStorage = S3SyncStorage
-        sys.modules["coze_coding_dev_sdk.s3"] = s3
-        setattr(sdk, "s3", s3)
+                s3_module.S3SyncStorage = S3SyncStorage
+            else:
+                raise FileNotFoundError(S3_SOURCE)
+        except Exception as exc:
+            LOAD_ERRORS["s3_storage.py"] = f"S3 兼容模块不可用：{type(exc).__name__}: {exc}"
+
+            class S3SyncStorage:
+                def __init__(self, **_kwargs):
+                    raise RuntimeError(LOAD_ERRORS["s3_storage.py"])
+
+            s3_module.S3SyncStorage = S3SyncStorage
+        sys.modules["coze_coding_dev_sdk.s3"] = s3_module
+        setattr(sdk, "s3", s3_module)
 
 
 def _load_module(filename: str):
     path = SOURCE / filename
-    if not path.exists():
-        raise FileNotFoundError(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"工具源文件不存在：{path}")
     name = f"steelmind_user_{path.stem}"
     spec = importlib.util.spec_from_file_location(name, path)
     if not spec or not spec.loader:
-        raise ImportError(f"无法加载 {path}")
+        raise ImportError(f"无法加载工具源文件：{path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
 
+def _s3_is_configured() -> bool:
+    required = ("COZE_BUCKET_ENDPOINT_URL", "COZE_BUCKET_NAME", "COZE_BUCKET_ACCESS_KEY", "COZE_BUCKET_SECRET_KEY")
+    has_identity = bool(os.getenv("COZE_WORKLOAD_IDENTITY_TOKEN") or os.getenv("COZE_STORAGE_TOKEN"))
+    return all(os.getenv(name) for name in required) and has_identity and importlib.util.find_spec("boto3") is not None
+
+
 def load_tools() -> None:
-    _install_coze_compat()
+    TOOLS.clear()
+    LOAD_ERRORS.clear()
+    try:
+        _install_langchain_compat()
+        _install_coze_compat()
+    except Exception as exc:
+        LOAD_ERRORS["compatibility"] = f"{type(exc).__name__}: {exc}"
+
     structural = None
     try:
         structural = _load_module("structural_calc.py")
@@ -117,12 +195,10 @@ def load_tools() -> None:
                 module = _load_module(filename)
                 module_cache[filename] = module
             TOOLS[attr] = getattr(module, attr)
+            if filename == "generate_design_files.py" and not _s3_is_configured():
+                module._get_storage = LocalArtifactStorage
         except Exception as exc:
             LOAD_ERRORS[attr] = f"{type(exc).__name__}: {exc}"
-
-
-class InvokeRequest(BaseModel):
-    payload: Any = {}
 
 
 @app.on_event("startup")
@@ -130,26 +206,76 @@ def startup() -> None:
     load_tools()
 
 
+def _availability_error(name: str) -> str | None:
+    if name not in TOOLS:
+        return LOAD_ERRORS.get(name, "工具未加载")
+    if name == "opensees_frame_verify":
+        try:
+            if importlib.util.find_spec("openseespy.opensees") is None:
+                return "未安装 openseespy；请在工具服务所用 Python 环境安装 OpenSeesPy。"
+        except (ImportError, ModuleNotFoundError, ValueError):
+            return "未安装 openseespy；请在工具服务所用 Python 环境安装 OpenSeesPy。"
+    if name == "query_region_params":
+        try:
+            from coze_coding_dev_sdk import SearchClient  # noqa: F401
+        except Exception:
+            return "Coze SearchClient 未安装/未配置；本机无法执行地区联网检索。"
+    return None
+
+
+def _tool_status() -> list[dict[str, Any]]:
+    result = []
+    for name, (_, _, description) in TOOL_SPECS.items():
+        error = _availability_error(name)
+        result.append({"name": name, "description": description, "available": error is None, "error": error})
+    return result
+
+
+class InvokeRequest(BaseModel):
+    payload: Any = Field(default_factory=dict)
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "source": str(SOURCE), "loaded": sorted(TOOLS), "errors": LOAD_ERRORS}
+    statuses = _tool_status()
+    return {
+        "ok": True,
+        "source": str(SOURCE),
+        "loaded": sorted(TOOLS),
+        "available_count": sum(item["available"] for item in statuses),
+        "tool_count": len(TOOL_SPECS),
+        "errors": {item["name"]: item["error"] for item in statuses if item["error"]},
+    }
 
 
 @app.get("/tools")
 def list_tools() -> list[dict[str, Any]]:
-    return [{"name": name, "description": desc, "available": name in TOOLS, "error": LOAD_ERRORS.get(name)} for name, (_, _, desc) in TOOL_SPECS.items()]
+    return _tool_status()
+
+
+@app.get("/files/{artifact_id}")
+def download_artifact(artifact_id: str) -> FileResponse:
+    if not re.fullmatch(r"[0-9a-f]{32}_[A-Za-z0-9._-]+", artifact_id):
+        raise HTTPException(status_code=404, detail="文件不存在")
+    path = (ARTIFACT_DIR / artifact_id).resolve()
+    if path.parent != ARTIFACT_DIR or not path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在或已清理")
+    return FileResponse(path, filename=path.name.split("_", 1)[1])
 
 
 @app.post("/invoke/{tool_name}")
 def invoke(tool_name: str, request: InvokeRequest) -> dict[str, Any]:
     if tool_name not in TOOL_SPECS:
-        raise HTTPException(status_code=404, detail=f"未允许调用的工具: {tool_name}")
-    tool = TOOLS.get(tool_name)
-    if tool is None:
-        raise HTTPException(status_code=503, detail=LOAD_ERRORS.get(tool_name, "工具不可用"))
+        raise HTTPException(status_code=404, detail=f"未允许调用的工具：{tool_name}")
+    reason = _availability_error(tool_name)
+    if reason:
+        raise HTTPException(status_code=503, detail=reason)
+    tool = TOOLS[tool_name]
     payload = request.payload if isinstance(request.payload, str) else json.dumps(request.payload, ensure_ascii=False)
     try:
         result = tool.invoke(payload) if hasattr(tool, "invoke") else tool(payload)
+        if result is None or result == "":
+            return {"ok": False, "tool": tool_name, "error": "工具返回空结果；请检查输入参数和工具日志。"}
         return {"ok": True, "tool": tool_name, "result": result}
     except Exception as exc:
         return {"ok": False, "tool": tool_name, "error": f"{type(exc).__name__}: {exc}"}

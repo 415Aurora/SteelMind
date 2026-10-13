@@ -15,7 +15,9 @@ python -m http.server 8080 --directory dist
 
 ## Token 与安全
 
-Token 由使用者在页面中输入，只存储在当前浏览器会话的 `sessionStorage`，不会写入源代码。生产环境建议下一步增加后端代理，把 Token 放进站点的运行时密钥，而不是让浏览器直连模型服务。
+DeepSeek API Key 由使用者在页面中输入，只留在当前页面内存，不写入 `sessionStorage` 或源代码。聊天使用 OpenAI-compatible SSE 流式输出，生成中可点击“停止回答”中止当前请求。
+
+Python 工具由独立 FastAPI 网关提供，参阅 `backend/README.md`。线上网页填写的 `127.0.0.1` 指向访问者自己的电脑；公网使用需部署可访问的 HTTPS 网关，并配置来源白名单与服务端依赖。
 
 ## 后续扩展路线
 
