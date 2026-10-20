@@ -1,4 +1,4 @@
-"""LangGraph orchestration for a transparent, bounded steel-design workflow.
+"""LangChain LCEL orchestration for a transparent, bounded steel-design workflow.
 
 This graph coordinates existing deterministic engineering tools. It deliberately
 does not let an LLM invent loads, member forces, sections, or acceptance criteria.
@@ -7,9 +7,29 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, TypedDict
+from contextvars import ContextVar, Token
+from typing import Any, Callable, TypedDict
+from uuid import uuid4
 
-from langgraph.graph import END, START, StateGraph
+from langchain_core.runnables import RunnableLambda
+
+
+_tool_trace_callback: ContextVar[Callable[[dict[str, Any]], None] | None] = ContextVar("steel_tool_trace_callback", default=None)
+
+
+def set_tool_trace_callback(callback: Callable[[dict[str, Any]], None]) -> Token:
+    """Attach a per-run callback used by the streaming workflow endpoint."""
+    return _tool_trace_callback.set(callback)
+
+
+def reset_tool_trace_callback(token: Token) -> None:
+    _tool_trace_callback.reset(token)
+
+
+def _emit_tool_trace(event: dict[str, Any]) -> None:
+    callback = _tool_trace_callback.get()
+    if callback is not None:
+        callback(event)
 
 
 class WorkflowState(TypedDict, total=False):
@@ -32,14 +52,22 @@ def _tool_text(name: str, payload: dict[str, Any]) -> str:
     # Late import avoids coupling module loading to when the gateway loads user tools.
     from app import TOOLS
 
-    tool = TOOLS.get(name)
-    if tool is None:
-        raise RuntimeError(f"工具未加载：{name}")
-    raw = json.dumps(payload, ensure_ascii=False)
-    value = tool.invoke(raw) if hasattr(tool, "invoke") else tool(raw)
-    if value is None or not str(value).strip():
-        raise RuntimeError(f"{name} 返回空结果")
-    return str(value)
+    trace_id = uuid4().hex
+    _emit_tool_trace({"type": "tool_start", "trace_id": trace_id, "tool": name, "input": payload})
+    try:
+        tool = TOOLS.get(name)
+        if tool is None:
+            raise RuntimeError(f"工具未加载：{name}")
+        raw = json.dumps(payload, ensure_ascii=False)
+        value = tool.invoke(raw) if hasattr(tool, "invoke") else tool(raw)
+        if value is None or not str(value).strip():
+            raise RuntimeError(f"{name} 返回空结果")
+        output = str(value)
+        _emit_tool_trace({"type": "tool_result", "trace_id": trace_id, "tool": name, "ok": True, "output": output})
+        return output
+    except Exception as exc:
+        _emit_tool_trace({"type": "tool_result", "trace_id": trace_id, "tool": name, "ok": False, "output": f"{type(exc).__name__}: {exc}"})
+        raise
 
 
 def _log(state: WorkflowState, stage: str, status: str, message: str) -> list[dict[str, Any]]:
@@ -215,24 +243,48 @@ def _generate(state: WorkflowState) -> dict[str, Any]:
                 "log": _log(state, "成果输出", "failed", msg)}
 
 
-def _route_after_validation(state: WorkflowState) -> str:
-    return "stop" if state.get("status") == "needs_input" else "combine"
+_TERMINAL_STATUSES = {"needs_input", "failed", "needs_revision"}
 
 
-def _route_after_combine(state: WorkflowState) -> str:
-    return "stop" if state.get("status") == "failed" else "analyze"
+def _runnable_step(step):
+    """Wrap a deterministic state transition as a composable LangChain runnable."""
+    def invoke(state: WorkflowState) -> WorkflowState:
+        if state.get("status") in _TERMINAL_STATUSES:
+            return state
+        return {**state, **step(state)}
+
+    return RunnableLambda(invoke)
 
 
-def _route_after_analysis(state: WorkflowState) -> str:
-    return "stop" if state.get("status") == "failed" else "prepare"
+def _run_member_loop(state: WorkflowState) -> WorkflowState:
+    """Run bounded member checks and user-supplied section retries inside LCEL."""
+    if state.get("status") in _TERMINAL_STATUSES:
+        return state
+
+    while True:
+        state.update(_prepare_member(state))
+        if state.get("status") in _TERMINAL_STATUSES or state.get("status") == "checks_complete":
+            return state
+
+        state.update(_check_member(state))
+        route = _after_check(state)
+        if route == "stop":
+            return state
+        if route == "revise":
+            state.update(_revise(state))
+            continue
+        if route == "next_member":
+            state.update(_next_member(state))
+            continue
+        if route == "unresolved":
+            state.update(_unresolved(state))
+            return state
+        if route == "outputs":
+            return state
 
 
-def _route_after_members(state: WorkflowState) -> str:
-    if state.get("status") == "failed":
-        return "stop"
-    if state.get("status") == "checks_complete":
-        return "outputs"
-    return "check"
+def _finalize(state: WorkflowState) -> WorkflowState:
+    return {**state, **_finish(state)}
 
 
 def _finish(state: WorkflowState) -> dict[str, Any]:
@@ -255,24 +307,15 @@ def _finish(state: WorkflowState) -> dict[str, Any]:
 
 
 def build_workflow():
-    graph = StateGraph(WorkflowState)
-    for name, node in (("validate", _validate), ("combine", _combine), ("analyze", _analyze),
-                       ("prepare_member", _prepare_member), ("check_member", _check_member),
-                       ("revise", _revise), ("next_member", _next_member), ("unresolved", _unresolved),
-                       ("generate", _generate), ("finish", _finish)):
-        graph.add_node(name, node)
-    graph.add_edge(START, "validate")
-    graph.add_conditional_edges("validate", _route_after_validation, {"stop": "finish", "combine": "combine"})
-    graph.add_conditional_edges("combine", _route_after_combine, {"stop": "finish", "analyze": "analyze"})
-    graph.add_conditional_edges("analyze", _route_after_analysis, {"stop": "finish", "prepare": "prepare_member"})
-    graph.add_conditional_edges("prepare_member", _route_after_members, {"stop": "finish", "check": "check_member", "outputs": "generate"})
-    graph.add_conditional_edges("check_member", _after_check, {"stop": "finish", "revise": "revise", "next_member": "next_member", "outputs": "generate", "unresolved": "unresolved"})
-    graph.add_edge("revise", "check_member")
-    graph.add_edge("next_member", "prepare_member")
-    graph.add_edge("unresolved", "finish")
-    graph.add_edge("generate", "finish")
-    graph.add_edge("finish", END)
-    return graph.compile()
+    """Compose validation, analysis, checks, and reporting with LangChain LCEL."""
+    return (
+        _runnable_step(_validate)
+        | _runnable_step(_combine)
+        | _runnable_step(_analyze)
+        | RunnableLambda(_run_member_loop)
+        | _runnable_step(_generate)
+        | RunnableLambda(_finalize)
+    )
 
 
 WORKFLOW = build_workflow()
@@ -280,7 +323,6 @@ WORKFLOW = build_workflow()
 
 def run_workflow(request: dict[str, Any]) -> dict[str, Any]:
     final = WORKFLOW.invoke({"request": request, "log": [], "errors": [], "checks": [], "artifacts": {},
-                             "member_index": 0, "candidate_index": 0, "status": "running"},
-                            config={"recursion_limit": 100})
+                             "member_index": 0, "candidate_index": 0, "status": "running"})
     return {"ok": final.get("status") in ("completed", "partial"), "log": final.get("log", []),
             "report": final.get("report", {}), "status": final.get("status", "failed")}

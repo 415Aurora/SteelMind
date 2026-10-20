@@ -4,8 +4,10 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import queue
 import re
 import sys
+import threading
 import types
 from contextvars import ContextVar
 from pathlib import Path
@@ -15,7 +17,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", r"C:\Users\Administrator\Downloads")).expanduser()
@@ -32,6 +34,10 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
+    # Required by browsers that still use Private Network Access preflights
+    # when an HTTPS Site calls its user's loopback companion service.
+    # Exact-origin allowlisting above remains mandatory.
+    allow_private_network=True,
 )
 
 TOOL_SPECS = {
@@ -260,15 +266,16 @@ def list_tools() -> list[dict[str, Any]]:
 @app.get("/workflow/health")
 def workflow_health() -> dict[str, Any]:
     try:
-        from langgraph.graph import StateGraph  # noqa: F401
-        return {"available": True, "engine": "LangGraph", "workflow": "steel-design-v1"}
+        from langchain_core.runnables import RunnableLambda  # noqa: F401
+        from workflow import WORKFLOW  # noqa: F401
+        return {"available": True, "engine": "LangChain LCEL", "workflow": "steel-design-v1"}
     except Exception as exc:
-        return {"available": False, "engine": "LangGraph", "error": f"{type(exc).__name__}: {exc}"}
+        return {"available": False, "engine": "LangChain LCEL", "error": f"{type(exc).__name__}: {exc}"}
 
 
 @app.post("/workflow/run")
 def run_design_workflow(request: WorkflowRequest) -> dict[str, Any]:
-    """Run parameterized load/model/check/revise/report graph."""
+    """Run the LangChain LCEL steel design pipeline."""
     try:
         from workflow import run_workflow
         result = run_workflow(request.payload)
@@ -279,6 +286,45 @@ def run_design_workflow(request: WorkflowRequest) -> dict[str, Any]:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"工作流执行异常：{type(exc).__name__}: {exc}") from exc
+
+
+@app.post("/workflow/run-stream")
+def run_design_workflow_stream(request: WorkflowRequest) -> StreamingResponse:
+    """Stream each real tool call's input/output and the final workflow result."""
+    try:
+        from workflow import reset_tool_trace_callback, run_workflow, set_tool_trace_callback
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"LangChain 工作流不可用：{type(exc).__name__}: {exc}") from exc
+
+    events: queue.Queue[Any] = queue.Queue()
+    finished = object()
+
+    def execute() -> None:
+        token = set_tool_trace_callback(events.put)
+        try:
+            events.put({"type": "workflow_started"})
+            result = run_workflow(request.payload)
+            events.put({"type": "workflow_completed", "result": result})
+        except Exception as exc:
+            events.put({"type": "workflow_error", "message": f"{type(exc).__name__}: {exc}"})
+        finally:
+            reset_tool_trace_callback(token)
+            events.put(finished)
+
+    threading.Thread(target=execute, name="steel-workflow-stream", daemon=True).start()
+
+    def stream_events():
+        while True:
+            event = events.get()
+            if event is finished:
+                break
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        stream_events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/files/{artifact_id}")
