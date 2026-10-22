@@ -41,7 +41,7 @@ app.add_middleware(
 )
 
 TOOL_SPECS = {
-    "query_region_params": ("region_params.py", "query_region_params", "联网检索地区抗震、风压和雪压参数"),
+    "query_region_params": ("region_params.py", "query_region_params", "从本地知识库查询地区荷载与抗震参数"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
@@ -225,11 +225,6 @@ def _availability_error(name: str) -> str | None:
                 return "未安装 openseespy；请在工具服务所用 Python 环境安装 OpenSeesPy。"
         except (ImportError, ModuleNotFoundError, ValueError):
             return "未安装 openseespy；请在工具服务所用 Python 环境安装 OpenSeesPy。"
-    if name == "query_region_params":
-        try:
-            from coze_coding_dev_sdk import SearchClient  # noqa: F401
-        except Exception:
-            return "Coze SearchClient 未安装/未配置；本机无法执行地区联网检索。"
     return None
 
 

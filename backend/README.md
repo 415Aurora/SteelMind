@@ -19,7 +19,7 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 
 - 荷载组合、钢构件验算、OpenSeesPy 分析和成果生成：使用 LangChain 工具接口；整体流程通过 LangChain LCEL 的 `RunnableSequence` 串联，并以 `RunnableLambda` 实现受限的候选截面迭代。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
-- 地区参数检索：原工具依赖 Coze `SearchClient`。普通本地 Python 环境没有该 Coze 集成时，网关会明确显示未配置，不会把提示文字冒充检索结果。
+- 地区参数查询：`region_params.py` 只读取 `C:\Users\Administrator\Downloads\region_params_kb.json`（或 `STEEL_REGION_KB_PATH` 指定的本地 JSON），不依赖 Coze SearchClient，也不进行联网查询。每个返回值必须有规范、条款/表号和核验日期；未录入、来源不完整或安全等级等非地区信息会明确标为待补充/需项目判断。字段定义、维护流程和空模板见 Downloads 目录下的 `region_params_kb_README.md` 与 `region_params_kb.json`。
 - 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
 
 ```powershell
