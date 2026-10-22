@@ -38,6 +38,7 @@ class WorkflowState(TypedDict, total=False):
     errors: list[str]
     load_result: str
     analysis_result: str
+    visualization_result: str
     checks: list[dict[str, Any]]
     member_index: int
     candidate_index: int
@@ -79,19 +80,27 @@ def _validate(state: WorkflowState) -> dict[str, Any]:
     geometry = req.get("geometry") or {}
     loads = req.get("loads") or {}
     missing = []
-    for key in ("bays", "stories", "bay_m", "height_m"):
+    for key in ("bays", "stories"):
         if geometry.get(key) in (None, ""):
             missing.append(f"geometry.{key}")
-    for key in ("dead", "live"):
-        if loads.get(key) in (None, ""):
-            missing.append(f"loads.{key}")
+    if geometry.get("bay_widths_m") is None and geometry.get("bay_m") in (None, ""):
+        missing.append("geometry.bay_m 或 geometry.bay_widths_m")
+    if geometry.get("story_heights_m") is None and geometry.get("height_m") in (None, ""):
+        missing.append("geometry.height_m 或 geometry.story_heights_m")
+    has_line_load = loads.get("q_by_story_kN_per_m") is not None or loads.get("q_kNm") is not None
+    if not has_line_load and (loads.get("dead") in (None, "") or loads.get("live") in (None, "")):
+        missing.append("loads.dead/live 或 loads.q_by_story_kN_per_m")
     if missing:
         msg = "缺少必要输入：" + ", ".join(missing)
         return {"status": "needs_input", "errors": [msg], "log": _log(state, "参数检查", "failed", msg)}
     try:
-        if any(float(geometry[k]) <= 0 for k in ("bays", "stories", "bay_m", "height_m")):
+        if any(float(geometry[k]) <= 0 for k in ("bays", "stories")):
             raise ValueError("跨数、层数、跨度和高度必须大于 0")
-        if float(loads["dead"]) < 0 or float(loads["live"]) < 0:
+        if geometry.get("bay_m") is not None and float(geometry["bay_m"]) <= 0:
+            raise ValueError("跨度必须大于 0")
+        if geometry.get("height_m") is not None and float(geometry["height_m"]) <= 0:
+            raise ValueError("高度必须大于 0")
+        if loads.get("dead") not in (None, "") and float(loads["dead"]) < 0 or loads.get("live") not in (None, "") and float(loads["live"]) < 0:
             raise ValueError("恒载、活载不能为负值")
     except (TypeError, ValueError) as exc:
         msg = f"参数检查失败：{exc}"
@@ -102,6 +111,9 @@ def _validate(state: WorkflowState) -> dict[str, Any]:
 
 def _combine(state: WorkflowState) -> dict[str, Any]:
     loads = state["request"].get("loads", {})
+    if loads.get("dead") in (None, "") or loads.get("live") in (None, ""):
+        msg = "未提供恒载/活载分项，已跳过规范荷载组合摘要；OpenSees 将按显式逐层线荷载进行结构分析。"
+        return {"load_result": msg, "log": _log(state, "荷载组合", "skipped", msg)}
     try:
         result = _tool_text("calculate_load_combination", {
             "dead": loads["dead"], "live": loads["live"],
@@ -120,21 +132,52 @@ def _analyze(state: WorkflowState) -> dict[str, Any]:
     loads = req.get("loads", {})
     sections = req.get("model_sections", {})
     payload = {
-        **geometry,
-        "base_support": geometry.get("base_support", "fixed"),
-        "q_kNm": loads.get("q_kNm", loads.get("dead", 0)),
-        "lateral_kn": loads.get("lateral_kn", loads.get("wind", 0) + loads.get("seismic", 0)),
+        "geometry": {**geometry, "base_support": geometry.get("base_support", "fixed")},
+        "material": req.get("material", req.get("materials", {})),
+        "loads": {
+            **loads,
+            # Keep legacy workflow inputs operational while allowing the new
+            # explicit per-story arrays to pass through unchanged.
+            "q_kNm": loads.get("q_kNm", loads.get("dead", 0)),
+            "lateral_kn": loads.get("lateral_kn", loads.get("wind", 0) + loads.get("seismic", 0)),
+        },
+        "sections": {
+            "beam": sections.get("beam", {"name": sections.get("beam_section", "")}),
+            "column": sections.get("column", {"name": sections.get("column_section", "")}),
+        },
         "beam_section": sections.get("beam_section", ""),
         "column_section": sections.get("column_section", ""),
     }
     try:
         result = _tool_text("opensees_frame_verify", payload)
-        if "分析失败" in result or "失败" in result:
+        if '"ok": false' in result.lower() or "分析失败" in result or "失败" in result:
             raise RuntimeError(result)
         return {"analysis_result": result, "log": _log(state, "OpenSeesPy 建模与分析", "ok", "有限元分析已返回结果")}
     except Exception as exc:
         msg = f"OpenSeesPy 分析失败：{exc}"
         return {"status": "failed", "errors": [*state.get("errors", []), msg], "log": _log(state, "OpenSeesPy 建模与分析", "failed", msg)}
+
+
+def _visualize(state: WorkflowState) -> dict[str, Any]:
+    """Generate an interactive HTML view from the solver's normalized parameters."""
+    analysis_text = state.get("analysis_result", "")
+    if not analysis_text:
+        return {}
+    try:
+        analysis = json.loads(analysis_text)
+        if not analysis.get("ok") or not analysis.get("parameters"):
+            return {}
+        result = _tool_text("opensees_frame_visualize", {"parameters": analysis["parameters"]})
+        parsed = json.loads(result)
+        if not parsed.get("ok"):
+            raise RuntimeError(parsed.get("error", "可视化工具未生成 HTML"))
+        return {"visualization_result": result,
+                "log": _log(state, "框架三维可视化", "ok", "已生成可旋转交互视图")}
+    except Exception as exc:
+        msg = f"框架三维视图生成失败：{type(exc).__name__}: {exc}"
+        # Visualization is auxiliary; keep a valid OpenSees analysis if rendering fails.
+        return {"visualization_result": json.dumps({"ok": False, "error": msg}, ensure_ascii=False),
+                "log": _log(state, "框架三维可视化", "warning", msg)}
 
 
 def _prepare_member(state: WorkflowState) -> dict[str, Any]:
@@ -297,6 +340,7 @@ def _finish(state: WorkflowState) -> dict[str, Any]:
         "status": state.get("status", "completed"),
         "load_combinations": state.get("load_result", ""),
         "analysis": state.get("analysis_result", ""),
+        "visualization": state.get("visualization_result", ""),
         "member_checks": list(latest_by_member.values()),
         "check_history": state.get("checks", []),
         "artifacts": state.get("artifacts", {}),
@@ -312,6 +356,7 @@ def build_workflow():
         _runnable_step(_validate)
         | _runnable_step(_combine)
         | _runnable_step(_analyze)
+        | _runnable_step(_visualize)
         | RunnableLambda(_run_member_loop)
         | _runnable_step(_generate)
         | RunnableLambda(_finalize)

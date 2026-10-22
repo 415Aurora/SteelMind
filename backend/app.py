@@ -45,6 +45,7 @@ TOOL_SPECS = {
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
+    "opensees_frame_visualize": ("opensees_visualize.py", "opensees_frame_visualize", "生成可拖拽旋转的 OpenSees 框架三维视图"),
     "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成结构计算书"),
     "generate_design_outputs": ("generate_design_files.py", "generate_design_outputs", "生成 Excel、Word 和 DXF 设计产物"),
 }
@@ -203,6 +204,9 @@ def load_tools() -> None:
             TOOLS[attr] = getattr(module, attr)
             if filename == "generate_design_files.py" and not _s3_is_configured():
                 module._get_storage = LocalArtifactStorage
+            if filename == "opensees_visualize.py":
+                module.ARTIFACT_DIR = ARTIFACT_DIR
+                module.PUBLIC_BASE = os.getenv("STEEL_TOOL_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
         except Exception as exc:
             LOAD_ERRORS[attr] = f"{type(exc).__name__}: {exc}"
 
