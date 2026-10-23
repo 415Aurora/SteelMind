@@ -39,6 +39,7 @@ class WorkflowState(TypedDict, total=False):
     load_result: str
     region_result: str
     analysis_result: str
+    members: list[dict[str, Any]]
     visualization_result: str
     checks: list[dict[str, Any]]
     member_index: int
@@ -174,9 +175,19 @@ def _analyze(state: WorkflowState) -> dict[str, Any]:
     }
     try:
         result = _tool_text("opensees_frame_verify", payload)
-        if '"ok": false' in result.lower() or "分析失败" in result or "失败" in result:
-            raise RuntimeError(result)
-        return {"analysis_result": result, "log": _log(state, "OpenSeesPy 建模与分析", "ok", "有限元分析已返回结果")}
+        parsed = json.loads(result)
+        if not parsed.get("ok"):
+            raise RuntimeError(parsed.get("error", result))
+        members_by_id = {str(m["member_id"]): dict(m) for m in parsed.get("results", {}).get("members", [])}
+        for supplied in req.get("members", []):
+            member_id = str(supplied.get("member_id", ""))
+            if member_id in members_by_id:
+                members_by_id[member_id].update(supplied)
+            elif member_id:
+                members_by_id[member_id] = dict(supplied)
+        members = list(members_by_id.values())
+        return {"analysis_result": result, "members": members,
+                "log": _log(state, "OpenSeesPy 建模与分析", "ok", f"已分析并提取 {len(members)} 根构件的内力与位移")}
     except Exception as exc:
         msg = f"OpenSeesPy 分析失败：{exc}"
         return {"status": "failed", "errors": [*state.get("errors", []), msg], "log": _log(state, "OpenSeesPy 建模与分析", "failed", msg)}
@@ -191,7 +202,11 @@ def _visualize(state: WorkflowState) -> dict[str, Any]:
         analysis = json.loads(analysis_text)
         if not analysis.get("ok") or not analysis.get("parameters"):
             return {}
-        result = _tool_text("opensees_frame_visualize", {"parameters": analysis["parameters"]})
+        statuses = [{"member_id": c.get("member_id"), "passed": c.get("passed"),
+                     "section": c.get("section"), "checks": c.get("checks", [])}
+                    for c in state.get("checks", [])]
+        result = _tool_text("opensees_frame_visualize", {
+            "parameters": analysis["parameters"], "member_checks": statuses})
         parsed = json.loads(result)
         if not parsed.get("ok"):
             raise RuntimeError(parsed.get("error", "可视化工具未生成 HTML"))
@@ -205,7 +220,7 @@ def _visualize(state: WorkflowState) -> dict[str, Any]:
 
 
 def _prepare_member(state: WorkflowState) -> dict[str, Any]:
-    members = state["request"].get("members", [])
+    members = state.get("members", state["request"].get("members", []))
     index = state.get("member_index", 0)
     if index >= len(members):
         return {"status": "checks_complete"}
@@ -213,7 +228,8 @@ def _prepare_member(state: WorkflowState) -> dict[str, Any]:
     candidates = member.get("candidate_sections") or [member.get("section", "")]
     if not candidates or not candidates[0]:
         msg = f"构件 {member.get('member_id', index + 1)} 未提供 section/candidate_sections"
-        return {"status": "failed", "errors": [*state.get("errors", []), msg], "log": _log(state, "构件验算", "failed", msg)}
+        candidates = [""]
+        state = {**state, "errors": [*state.get("errors", []), msg]}
     candidate_index = state.get("candidate_index", 0)
     member["_candidate_sections"] = candidates
     member["section"] = candidates[min(candidate_index, len(candidates) - 1)]
@@ -224,31 +240,37 @@ def _check_member(state: WorkflowState) -> dict[str, Any]:
     member = state["current_member"]
     candidate = member["section"]
     payload = {k: v for k, v in member.items() if not k.startswith("_") and k not in ("candidate_sections", "member_id")}
+    payload["member_id"] = member.get("member_id")
+    payload["structured_output"] = True
     try:
-        result = _tool_text("check_steel_member", payload)
-        failed = bool(re.search(r"✗|JSON 解析失败|不支持的钢材|未找到截面|验算失败", result))
-        check = {"member_id": member.get("member_id", f"member-{state.get('member_index', 0) + 1}"),
-                 "section": candidate, "passed": not failed, "result": result}
+        raw = _tool_text("check_steel_member", payload)
+        result = json.loads(raw)
+        if not result.get("ok"):
+            raise RuntimeError(result.get("error", raw))
+        check = {**result, "member_id": member.get("member_id", f"member-{state.get('member_index', 0) + 1}"),
+                 "section": candidate, "result": result.get("result_text", "")}
+        failed = not result.get("passed", False)
         msg = f"{check['member_id']} 使用 {candidate}：" + ("当前验算未发现失败标记" if not failed else "存在未通过项")
         return {"current_check": check, "checks": [*state.get("checks", []), check],
                 "log": _log(state, "构件验算", "ok" if not failed else "review", msg)}
     except Exception as exc:
         msg = f"构件验算调用失败：{exc}"
-        return {"current_check": {"passed": False, "error": msg}, "status": "failed",
+        check = {"member_id": member.get("member_id", f"member-{state.get('member_index', 0) + 1}"),
+                 "section": candidate, "passed": False, "error": msg,
+                 "result": msg, "checks": [{"item": "验算执行", "passed": False, "text": msg}]}
+        return {"current_check": check, "checks": [*state.get("checks", []), check],
                 "errors": [*state.get("errors", []), msg], "log": _log(state, "构件验算", "failed", msg)}
 
 
 def _after_check(state: WorkflowState) -> str:
     if state.get("status") == "failed":
         return "stop"
-    if state.get("current_check", {}).get("passed"):
-        if state.get("member_index", 0) + 1 < len(state["request"].get("members", [])):
-            return "next_member"
-        return "outputs"
     member = state.get("current_member", {})
-    if state.get("candidate_index", 0) + 1 < len(member.get("_candidate_sections", [])):
+    if not state.get("current_check", {}).get("passed") and state.get("candidate_index", 0) + 1 < len(member.get("_candidate_sections", [])):
         return "revise"
-    return "unresolved"
+    if state.get("member_index", 0) + 1 < len(state.get("members", state["request"].get("members", []))):
+        return "next_member"
+    return "outputs"
 
 
 def _revise(state: WorkflowState) -> dict[str, Any]:
@@ -278,21 +300,22 @@ def _generate(state: WorkflowState) -> dict[str, Any]:
     final_checks = list(latest_by_member.values())
     passing = [c for c in final_checks if c.get("passed")]
     failed = [c for c in final_checks if not c.get("passed")]
-    if failed:
-        msg = "存在未通过的构件验算；为避免生成误导性定稿成果，已跳过输出。请补充候选截面或工程师复核。"
-        return {"status": "needs_revision", "log": _log(state, "成果输出", "skipped", msg)}
     if req.get("generate_outputs", True) is False:
-        return {"status": "completed", "log": _log(state, "成果输出", "skipped", "按请求跳过文件生成")}
+        final_status = "needs_revision" if failed else "completed"
+        return {"status": final_status, "log": _log(state, "成果输出", "skipped", "按请求跳过文件生成；逐构件结果仍在工作流报告中")}
     name = req.get("project_name", "钢结构初步设计")
-    check_text = "\n\n".join(c["result"] for c in passing) or "未提供 member_checks；本次仅完成荷载组合与框架分析，未执行构件验算。"
+    check_text = "\n\n".join(
+        f"构件 {c.get('member_id')} | {'通过' if c.get('passed') else '未通过'} | 截面 {c.get('section')}\n{c.get('result', '')}"
+        for c in final_checks) or "没有可验算的物理构件结果。"
     chapters = [
         {"title": "项目参数与建模假设", "body": json.dumps({"geometry": geometry, "loads": req.get("loads", {}), "model_sections": req.get("model_sections", {})}, ensure_ascii=False, indent=2)},
         *([{"title": "地区参数规范检索候选依据", "body": state.get("region_result", "")}] if state.get("region_result") else []),
         {"title": "荷载组合", "body": state.get("load_result", "")},
         {"title": "OpenSeesPy 框架分析", "body": state.get("analysis_result", "")},
         {"title": "构件验算与迭代记录", "body": check_text},
+        {"title": "验算汇总", "body": f"总构件数：{len(final_checks)}；通过：{len(passing)}；未通过：{len(failed)}。\n未通过构件：{', '.join(str(c.get('member_id')) for c in failed) or '无'}"},
     ]
-    conclusion = "工作流已完成。结果仅供方案研究与计算准备，须由具备资质的工程师核查模型、荷载、规范版本及全部验算。"
+    conclusion = (f"构件验算完成：{len(passing)} 根通过，{len(failed)} 根未通过。" if failed else "全部构件已完成当前验算项。") + "结果仅供方案研究与计算准备，须由具备资质的工程师核查模型、荷载组合、规范条文适用性及全部计算。"
     output_data = {"project_name": name, "bays": geometry.get("bays", 1), "bay_m": geometry.get("bay_m", 6),
                    "height_m": geometry.get("height_m", 6), "sections": [{"title": "流程结果", "items": [
                        {"name": "荷载组合", "symbol": "load_combo", "value": "已生成", "note": "详见计算书"},
@@ -302,9 +325,13 @@ def _generate(state: WorkflowState) -> dict[str, Any]:
     artifacts: dict[str, str] = {}
     try:
         artifacts["calculation_book"] = _tool_text("generate_calculation_book", {"project_name": name, "chapters": chapters, "conclusion": conclusion})
-        artifacts["design_outputs"] = _tool_text("generate_design_outputs", output_data)
-        return {"status": "completed", "artifacts": artifacts,
-                "log": _log(state, "成果输出", "ok", "计算书、参数表、方案说明书和 DXF 简图已请求生成")}
+        if not failed:
+            artifacts["design_outputs"] = _tool_text("generate_design_outputs", output_data)
+        final_status = "needs_revision" if failed else "completed"
+        message = (f"已生成包含逐构件结果的验算报告；{len(failed)} 根未通过，已在可视化中标红，跳过定稿设计文件。"
+                   if failed else "已生成逐构件验算报告及设计文件。")
+        return {"status": final_status, "artifacts": artifacts,
+                "log": _log(state, "成果输出", "review" if failed else "ok", message)}
     except Exception as exc:
         msg = f"成果文件生成失败：{exc}"
         return {"status": "partial", "artifacts": artifacts, "errors": [*state.get("errors", []), msg],
@@ -345,7 +372,9 @@ def _run_member_loop(state: WorkflowState) -> WorkflowState:
             state.update(_next_member(state))
             continue
         if route == "unresolved":
-            state.update(_unresolved(state))
+            if state.get("member_index", 0) + 1 < len(state.get("members", [])):
+                state.update(_next_member(state))
+                continue
             return state
         if route == "outputs":
             return state
@@ -383,8 +412,8 @@ def build_workflow():
         | _runnable_step(_query_region)
         | _runnable_step(_combine)
         | _runnable_step(_analyze)
-        | _runnable_step(_visualize)
         | RunnableLambda(_run_member_loop)
+        | _runnable_step(_visualize)
         | _runnable_step(_generate)
         | RunnableLambda(_finalize)
     )
@@ -396,5 +425,5 @@ WORKFLOW = build_workflow()
 def run_workflow(request: dict[str, Any]) -> dict[str, Any]:
     final = WORKFLOW.invoke({"request": request, "log": [], "errors": [], "checks": [], "artifacts": {},
                              "member_index": 0, "candidate_index": 0, "status": "running"})
-    return {"ok": final.get("status") in ("completed", "partial"), "log": final.get("log", []),
+    return {"ok": final.get("status") in ("completed", "partial", "needs_revision"), "log": final.get("log", []),
             "report": final.get("report", {}), "status": final.get("status", "failed")}
