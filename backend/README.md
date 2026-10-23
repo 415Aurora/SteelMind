@@ -1,6 +1,6 @@
 # SteelMind Python Tool Gateway
 
-FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。`/workflow/run-stream` 以 SSE 推送 LangChain 工作流的实时阶段与工具输入输出，`/workflow/run` 保留同步调用。
+FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。`/workflow/run-stream` 以 SSE 推送 LangChain 工作流的实时阶段与工具输入输出，`/workflow/run` 保留同步调用。规范 RAG 直接读取项目 `Knowledge/07_机器可读规范库/standards.db`，无需另起 8765 HTTP 服务。
 
 ## 启动
 
@@ -19,7 +19,7 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 
 - 荷载组合、钢构件验算、OpenSeesPy 分析和成果生成：使用 LangChain 工具接口；整体流程通过 LangChain LCEL 的 `RunnableSequence` 串联，并以 `RunnableLambda` 实现受限的候选截面迭代。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
-- 地区参数查询：`region_params.py` 只读取 `C:\Users\Administrator\Downloads\region_params_kb.json`（或 `STEEL_REGION_KB_PATH` 指定的本地 JSON），不依赖 Coze SearchClient，也不进行联网查询。每个返回值必须有规范、条款/表号和核验日期；未录入、来源不完整或安全等级等非地区信息会明确标为待补充/需项目判断。字段定义、维护流程和空模板见 Downloads 目录下的 `region_params_kb_README.md` 与 `region_params_kb.json`。
+- 规范 RAG：`/knowledge/bases` 返回 07 索引的标准清单，`/knowledge/search` 提供所选规范范围内的本地混合检索；`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及 LCEL 工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。`Knowledge/` 为本地知识库目录，已加入 Git 忽略规则，网页部署包不会包含规范原文和数据库。
 - 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
 
 ```powershell

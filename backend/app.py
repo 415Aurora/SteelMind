@@ -41,7 +41,8 @@ app.add_middleware(
 )
 
 TOOL_SPECS = {
-    "query_region_params": ("region_params.py", "query_region_params", "从本地知识库查询地区荷载与抗震参数"),
+    "query_region_params": ("__knowledge__", "query_region_params", "从本地规范 RAG 检索地区参数候选依据（需核验）"),
+    "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
@@ -193,7 +194,14 @@ def load_tools() -> None:
         LOAD_ERRORS["structural_calc.py"] = f"{type(exc).__name__}: {exc}"
 
     module_cache: dict[str, Any] = {"structural_calc.py": structural}
+    try:
+        from knowledge_tools import LANGCHAIN_TOOLS
+        TOOLS.update({tool.name: tool for tool in LANGCHAIN_TOOLS})
+    except Exception as exc:
+        LOAD_ERRORS["local_standards_rag"] = f"{type(exc).__name__}: {exc}"
     for filename, attr, _ in TOOL_SPECS.values():
+        if filename == "__knowledge__":
+            continue
         if attr in TOOLS:
             continue
         try:
@@ -218,7 +226,7 @@ def startup() -> None:
 
 def _availability_error(name: str) -> str | None:
     if name not in TOOLS:
-        return LOAD_ERRORS.get(name, "工具未加载")
+        return LOAD_ERRORS.get("local_standards_rag", LOAD_ERRORS.get(name, "工具未加载")) if name in {"query_region_params", "search_steel_standards"} else LOAD_ERRORS.get(name, "工具未加载")
     if name == "opensees_frame_verify":
         try:
             if importlib.util.find_spec("openseespy.opensees") is None:
@@ -260,6 +268,33 @@ def health() -> dict[str, Any]:
 @app.get("/tools")
 def list_tools() -> list[dict[str, Any]]:
     return _tool_status()
+
+
+@app.get("/knowledge/bases")
+def list_knowledge_bases() -> dict[str, Any]:
+    """Expose the local RAG index inventory to the webpage."""
+    try:
+        from knowledge_tools import knowledge_inventory
+        return knowledge_inventory()
+    except Exception as exc:
+        return {"available": False, "source": "local_standards_rag", "count": 0,
+                "knowledge_bases": [], "error": f"{type(exc).__name__}: {exc}"}
+
+
+class KnowledgeSearchRequest(BaseModel):
+    query: str = ""
+    top_k: int = Field(default=5, ge=1, le=20)
+    standard_ids: list[str] = Field(default_factory=list)
+    knowledge_enabled: bool = True
+
+
+@app.post("/knowledge/search")
+def search_local_knowledge(request: KnowledgeSearchRequest) -> dict[str, Any]:
+    try:
+        from knowledge_tools import search_payload
+        return search_payload(request.model_dump())
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"本地规范知识库检索失败：{type(exc).__name__}: {exc}") from exc
 
 
 @app.get("/workflow/health")
@@ -346,7 +381,11 @@ def invoke(tool_name: str, request: InvokeRequest) -> dict[str, Any]:
     tool = TOOLS[tool_name]
     payload = request.payload if isinstance(request.payload, str) else json.dumps(request.payload, ensure_ascii=False)
     try:
-        result = tool.invoke(payload) if hasattr(tool, "invoke") else tool(payload)
+        if tool_name in {"search_steel_standards", "query_region_params"}:
+            structured_payload = request.payload if isinstance(request.payload, dict) else json.loads(payload)
+            result = tool.invoke(structured_payload) if hasattr(tool, "invoke") else tool(**structured_payload)
+        else:
+            result = tool.invoke(payload) if hasattr(tool, "invoke") else tool(payload)
         if result is None or result == "":
             return {"ok": False, "tool": tool_name, "error": "工具返回空结果；请检查输入参数和工具日志。"}
         return {"ok": True, "tool": tool_name, "result": result}

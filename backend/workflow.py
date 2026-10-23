@@ -37,6 +37,7 @@ class WorkflowState(TypedDict, total=False):
     log: list[dict[str, Any]]
     errors: list[str]
     load_result: str
+    region_result: str
     analysis_result: str
     visualization_result: str
     checks: list[dict[str, Any]]
@@ -60,7 +61,10 @@ def _tool_text(name: str, payload: dict[str, Any]) -> str:
         if tool is None:
             raise RuntimeError(f"工具未加载：{name}")
         raw = json.dumps(payload, ensure_ascii=False)
-        value = tool.invoke(raw) if hasattr(tool, "invoke") else tool(raw)
+        if name in {"search_steel_standards", "query_region_params"}:
+            value = tool.invoke(payload) if hasattr(tool, "invoke") else tool(**payload)
+        else:
+            value = tool.invoke(raw) if hasattr(tool, "invoke") else tool(raw)
         if value is None or not str(value).strip():
             raise RuntimeError(f"{name} 返回空结果")
         output = str(value)
@@ -124,6 +128,26 @@ def _combine(state: WorkflowState) -> dict[str, Any]:
     except Exception as exc:
         msg = f"荷载组合失败：{exc}"
         return {"status": "failed", "errors": [*state.get("errors", []), msg], "log": _log(state, "荷载组合", "failed", msg)}
+
+
+def _query_region(state: WorkflowState) -> dict[str, Any]:
+    req = state.get("request", {})
+    region = str(req.get("region") or req.get("location") or "").strip()
+    if not region:
+        return {}
+    knowledge = req.get("knowledge") or {}
+    enabled = knowledge.get("enabled", req.get("knowledge_enabled", True))
+    standard_ids = knowledge.get("standard_ids", req.get("standard_ids", []))
+    payload = {"region": region, "items": req.get("region_items"),
+               "standard_ids": standard_ids, "knowledge_enabled": enabled}
+    try:
+        result = _tool_text("query_region_params", payload)
+        return {"region_result": result,
+                "log": _log(state, "地区规范知识检索", "ok", "已检索本地规范知识库；命中片段仅作为候选依据")}
+    except Exception as exc:
+        msg = f"地区规范知识检索失败：{exc}"
+        return {"region_result": json.dumps({"ok": False, "status": "failed", "error": msg}, ensure_ascii=False),
+                "log": _log(state, "地区规范知识检索", "warning", msg)}
 
 
 def _analyze(state: WorkflowState) -> dict[str, Any]:
@@ -263,6 +287,7 @@ def _generate(state: WorkflowState) -> dict[str, Any]:
     check_text = "\n\n".join(c["result"] for c in passing) or "未提供 member_checks；本次仅完成荷载组合与框架分析，未执行构件验算。"
     chapters = [
         {"title": "项目参数与建模假设", "body": json.dumps({"geometry": geometry, "loads": req.get("loads", {}), "model_sections": req.get("model_sections", {})}, ensure_ascii=False, indent=2)},
+        *([{"title": "地区参数规范检索候选依据", "body": state.get("region_result", "")}] if state.get("region_result") else []),
         {"title": "荷载组合", "body": state.get("load_result", "")},
         {"title": "OpenSeesPy 框架分析", "body": state.get("analysis_result", "")},
         {"title": "构件验算与迭代记录", "body": check_text},
@@ -339,6 +364,7 @@ def _finish(state: WorkflowState) -> dict[str, Any]:
         "project_name": req.get("project_name", "钢结构初步设计"),
         "status": state.get("status", "completed"),
         "load_combinations": state.get("load_result", ""),
+        "region_knowledge": state.get("region_result", ""),
         "analysis": state.get("analysis_result", ""),
         "visualization": state.get("visualization_result", ""),
         "member_checks": list(latest_by_member.values()),
@@ -354,6 +380,7 @@ def build_workflow():
     """Compose validation, analysis, checks, and reporting with LangChain LCEL."""
     return (
         _runnable_step(_validate)
+        | _runnable_step(_query_region)
         | _runnable_step(_combine)
         | _runnable_step(_analyze)
         | _runnable_step(_visualize)
