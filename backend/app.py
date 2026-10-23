@@ -285,6 +285,7 @@ class KnowledgeSearchRequest(BaseModel):
     query: str = ""
     top_k: int = Field(default=5, ge=1, le=20)
     standard_ids: list[str] = Field(default_factory=list)
+    source_dirs: list[str] = Field(default_factory=list)
     knowledge_enabled: bool = True
 
 

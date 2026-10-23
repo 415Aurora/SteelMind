@@ -139,8 +139,10 @@ def _query_region(state: WorkflowState) -> dict[str, Any]:
     knowledge = req.get("knowledge") or {}
     enabled = knowledge.get("enabled", req.get("knowledge_enabled", True))
     standard_ids = knowledge.get("standard_ids", req.get("standard_ids", []))
+    source_dirs = knowledge.get("source_dirs", req.get("source_dirs", []))
     payload = {"region": region, "items": req.get("region_items"),
-               "standard_ids": standard_ids, "knowledge_enabled": enabled}
+               "standard_ids": standard_ids, "source_dirs": source_dirs,
+               "knowledge_enabled": enabled}
     try:
         result = _tool_text("query_region_params", payload)
         return {"region_result": result,

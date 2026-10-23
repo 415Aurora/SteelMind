@@ -26,19 +26,52 @@ sys.modules[_spec.name] = rag_engine
 _spec.loader.exec_module(rag_engine)
 
 
-def _selected_search(query: str, top_k: int = 5, standard_ids: list[str] | None = None) -> list[dict[str, Any]]:
+def _selected_search(query: str, top_k: int = 5, standard_ids: list[str] | None = None,
+                     source_dirs: list[str] | None = None) -> list[dict[str, Any]]:
     top_k = max(1, min(int(top_k), 20))
     selected = [str(item).strip() for item in (standard_ids or []) if str(item).strip()]
-    if not selected:
-        return rag_engine.search_standards(query, top_k=top_k)
+    selected_dirs = {str(item).replace("\\", "/").strip("/") for item in (source_dirs or []) if str(item).strip()}
+    directory_standards = _directory_standard_map() if selected_dirs else {}
+    if selected_dirs:
+        allowed_standards = {
+            standard_id for directory, standard_ids_in_dir in directory_standards.items()
+            if any(directory == selected_dir or directory.startswith(selected_dir + "/")
+                   for selected_dir in selected_dirs)
+            for standard_id in standard_ids_in_dir
+        }
+        selected = sorted(allowed_standards if not selected else set(selected) & allowed_standards)
+        if not selected:
+            return []
     hits: dict[str, dict[str, Any]] = {}
-    # Search each selected standard separately because the supplied RAG API
-    # accepts one standard_id filter per call.
-    each_k = min(20, max(top_k, (top_k + len(selected) - 1) // len(selected) + 2))
-    for standard_id in selected:
-        for hit in rag_engine.search_standards(query, top_k=each_k, standard_id=standard_id):
+    if not selected:
+        candidates = rag_engine.search_standards(query, top_k=top_k)
+    else:
+        # The RAG engine supports a per-standard filter; resolve selected
+        # directories to indexed standards, then enforce exact source paths.
+        each_k = min(20, max(top_k, (top_k + len(selected) - 1) // len(selected) + 2))
+        candidates = []
+        for standard_id in selected:
+            candidates.extend(rag_engine.search_standards(query, top_k=each_k, standard_id=standard_id))
+    for hit in candidates:
+        if selected_dirs:
+            source_dir = str(hit.get("source_file", "")).replace("\\", "/").rsplit("/", 1)[0]
+            if not any(source_dir == directory or source_dir.startswith(directory + "/")
+                       for directory in selected_dirs):
+                continue
+        standard_id = str(hit.get("standard_id", ""))
+        if not selected or standard_id in selected:
             hits[str(hit.get("id") or f"{standard_id}:{hit.get('page_no')}:{hit.get('clause_no')}")] = hit
     return sorted(hits.values(), key=lambda item: item.get("score", 0), reverse=True)[:top_k]
+
+
+def _directory_standard_map() -> dict[str, set[str]]:
+    connection, _ = rag_engine.load_index()
+    result: dict[str, set[str]] = {}
+    for source_file, standard_id in connection.execute("SELECT source_file, standard_id FROM chunks"):
+        path = str(source_file or "").replace("\\", "/")
+        directory = path.rsplit("/", 1)[0] if "/" in path else "未分类"
+        result.setdefault(directory, set()).add(str(standard_id))
+    return result
 
 
 def _compact(value: str) -> str:
@@ -48,11 +81,27 @@ def _compact(value: str) -> str:
 
 def knowledge_inventory() -> dict[str, Any]:
     standards = rag_engine.list_standards()
+    directory_map = _directory_standard_map()
+    standard_titles = {str(item["standard_id"]): str(item.get("title") or "") for item in standards}
+    directories = []
+    connection, _ = rag_engine.load_index()
+    counts = {}
+    for source_file, in connection.execute("SELECT source_file FROM chunks"):
+        path = str(source_file or "").replace("\\", "/")
+        directory = path.rsplit("/", 1)[0] if "/" in path else "未分类"
+        counts[directory] = counts.get(directory, 0) + 1
+    for directory, ids in sorted(directory_map.items()):
+        directories.append({"directory_id": directory, "title": directory.split("/")[-1],
+                            "chunks": counts.get(directory, 0), "standard_count": len(ids),
+                            "standards": sorted(ids),
+                            "standard_titles": [standard_titles.get(item, "") for item in sorted(ids)]})
     return {
         "available": True,
         "source": "Knowledge/07_机器可读规范库/standards.db",
         "count": len(standards),
         "knowledge_bases": standards,
+        "directories": directories,
+        "directory_count": len(directories),
     }
 
 
@@ -62,7 +111,8 @@ def search_payload(payload: dict[str, Any]) -> dict[str, Any]:
     query = str(payload.get("query", "")).strip()
     if not query:
         return {"ok": False, "status": "needs_input", "results": [], "message": "请提供检索问题或关键词。"}
-    hits = _selected_search(query, payload.get("top_k", 5), payload.get("standard_ids"))
+    hits = _selected_search(query, payload.get("top_k", 5), payload.get("standard_ids"),
+                            payload.get("source_dirs"))
     return {"ok": True, "status": "matched" if hits else "not_found", "query": query,
             "source": "local_standards_rag", "count": len(hits), "results": hits,
             "message": "结果来自本地规范检索；工程应用前请核对原文、版本和适用条件。"}
@@ -73,10 +123,12 @@ def search_steel_standards(
     query: str,
     top_k: int = 5,
     standard_ids: list[str] | None = None,
+    source_dirs: list[str] | None = None,
     knowledge_enabled: bool = True,
 ) -> dict[str, Any]:
     """从本地 07 规范知识库进行混合检索，返回条文片段及来源元数据。"""
     return search_payload({"query": query, "top_k": top_k, "standard_ids": standard_ids,
+                           "source_dirs": source_dirs,
                            "knowledge_enabled": knowledge_enabled})
 
 
@@ -85,6 +137,7 @@ def query_region_params(
     region: str,
     items: list[str] | None = None,
     standard_ids: list[str] | None = None,
+    source_dirs: list[str] | None = None,
     knowledge_enabled: bool = True,
 ) -> dict[str, Any]:
     """在本地规范 RAG 中检索地区荷载/抗震参数的候选依据；不联网、不把片段自动认定为取值。"""
@@ -97,7 +150,7 @@ def query_region_params(
     query = f"{region} 地区参数 " + "；".join(str(item) for item in requested)
     region_terms = re.findall(r"[\u4e00-\u9fff]{2,}?(?:自治区|自治州|地区|省|市|盟|县|区|旗)", region)
     compact_region_terms = [_compact(term) for term in region_terms if len(_compact(term)) >= 2]
-    candidates = _selected_search(query, 20, standard_ids)
+    candidates = _selected_search(query, 20, standard_ids, source_dirs)
     # A regional lookup must have an actual place-name match in the retrieved
     # text; otherwise generic clauses are not evidence of a city's parameters.
     hits = [hit for hit in candidates if any(term in _compact(str(hit.get("text", ""))) for term in compact_region_terms)]
