@@ -468,7 +468,7 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
         return {"status": "needs_input", "errors": [str(exc)]}
     return {"status": "running", "request": {**req, "max_iterations": max_iterations,
                                                   "target_utilization": target_utilization},
-            "section_map": {}, "iteration_history": [], "errors": []}
+            "section_map": dict(req.get("initial_member_sections") or {}), "iteration_history": [], "errors": []}
 
 
 def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
@@ -606,41 +606,12 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         state.setdefault("errors", []).append(f"三维可视化生成失败：{exc}")
     artifacts = {}
-    try:
-        check_text = "\n\n".join(f"{c.get('member_id')} | {c.get('section')} | {'通过' if c.get('passed') else '未通过'}\n{c.get('result_text','')}" for c in final_checks)
-        calc = _tool_text("generate_calculation_book", {
-            "project_name": req.get("project_name", "钢框架截面迭代与优化"),
-            "chapters": [
-                {"title": "模型输入与假定", "body": json.dumps({"geometry": geometry, "loads": loads, "material": req.get("material"), "initial_sections": model_sections, "final_sections": section_map or {"beam": beam_initial, "column": col_initial}}, ensure_ascii=False, indent=2)},
-                {"title": "OpenSees 最终轮分析", "body": json.dumps(final_analysis.get("results", {}), ensure_ascii=False, indent=2)},
-                {"title": "迭代历史", "body": json.dumps(history, ensure_ascii=False, indent=2)},
-                {"title": "逐构件验算", "body": check_text},
-            ],
-            "conclusion": f"迭代状态：{status}；已执行 {len(history)} 轮。" + ("当前提交的验算项均通过，仍须专业工程师复核。" if converged_checked else "尚未收敛到全部通过；请调整候选截面、模型或参数后复算。"),
-        })
-        artifacts["calculation_book"] = calc
-        if converged_checked:
-            geo = final_analysis.get("parameters", {}).get("geometry", geometry)
-            member_items = [{"name": c.get("member_id"), "symbol": c.get("member_type"),
-                             "value": c.get("section"), "note": "当前模型验算项通过" if c.get("passed") else "未通过"}
-                            for c in final_checks]
-            artifacts["design_outputs"] = _tool_text("generate_design_outputs", {
-                "project_name": req.get("project_name", "钢框架截面迭代方案"),
-                "bays": geo.get("bays", 1),
-                "bay_m": (geo.get("bay_widths_m") or [geo.get("bay_m", 6)])[0],
-                "height_m": sum(geo.get("story_heights_m") or [geo.get("height_m", 3)]),
-                "sections": [{"title": "最终逐构件截面与验算", "items": member_items}],
-                "conclusion": "截面迭代工作流的当前模型已完成所实现的逐构件验算项。该文件属于方案级输出，须由专业工程师复核，不作为施工图或审查结论。",
-            })
-    except Exception as exc:
-        state.setdefault("errors", []).append(f"计算书生成失败：{exc}")
-
     final_sections = dict(section_map)
     for member in final_checks:
         final_sections[member["member_id"]] = member.get("section")
     report = {"project_name": req.get("project_name", "钢框架截面迭代与优化"), "status": status,
               "converged": converged_checked, "iterations": history, "final_sections": final_sections,
-              "member_checks": final_checks, "analysis": final_analysis,
+              "member_checks": final_checks, "analysis": final_analysis, "request": req,
               "visualization": vis_result, "artifacts": artifacts, "errors": state.get("errors", []),
               "engineering_notice": "本功能为二维线弹性单静力工况的方案级迭代原型。轴力采用绝对值包络，弱轴弯矩取零，计算长度暂按几何长度；当前 GB 50017 验算器仍含筛查性简化。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
     return {"status": status, "report": report}
@@ -658,3 +629,121 @@ def run_section_iteration(request: dict[str, Any]) -> dict[str, Any]:
     status = final.get("status", "failed")
     return {"ok": status in {"converged", "needs_revision", "max_iterations"},
             "status": status, "report": final.get("result", {})}
+
+
+def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
+    req = request
+    from app import TOOLS
+    raw = _tool_text("validate_steel_frame_parameters", req)
+    validation = json.loads(raw)
+    if not validation.get("ok"):
+        return {"ok": False, "status": "needs_input", "report": {"validation": validation}}
+
+    knowledge = req.get("knowledge") or {}
+    query = f"{req.get('region', '')} 钢结构框架设计 荷载取值 抗震设防 安全等级 设计依据".strip()
+    rag = _tool_text("search_steel_standards", {
+        "query": query, "top_k": req.get("knowledge_top_k", 5),
+        "standard_ids": knowledge.get("standard_ids", req.get("standard_ids", [])),
+        "source_dirs": knowledge.get("source_dirs", req.get("source_dirs", [])),
+        "knowledge_enabled": knowledge.get("enabled", req.get("knowledge_enabled", True)),
+    })
+    loads = req["loads"]
+    combination = _tool_text("calculate_load_combination", {
+        "dead": loads["dead"], "live": loads["live"], "wind": loads.get("wind", 0) or 0,
+        "seismic": loads.get("seismic", 0) or 0, "unit": loads.get("unit", "kN/m"),
+    })
+    geometry, material, sections = req["geometry"], req.get("material", {}), req["model_sections"]
+    analysis = json.loads(_tool_text("opensees_frame_verify", {
+        "geometry": geometry, "loads": loads, "material": material,
+        "sections": {"beam": {"name": sections["beam_section"]}, "column": {"name": sections["column_section"]}},
+    }))
+    if not analysis.get("ok"):
+        return {"ok": False, "status": "analysis_failed", "report": {"validation": validation, "analysis": analysis}}
+    members = analysis.get("results", {}).get("members", [])
+    if not members:
+        return {"ok": False, "status": "analysis_failed", "report": {"error": "OpenSees 未返回构件内力"}}
+    visualization = _tool_text("opensees_frame_visualize", analysis)
+
+    target = float(req.get("target_utilization", .85))
+    candidate_sections = req["candidate_sections"]
+    chosen, checks = {}, []
+    for member in members:
+        role = str(member.get("member_type"))
+        candidates = candidate_sections.get(role, [])
+        if not candidates:
+            continue
+        results = []
+        for candidate in candidates:
+            check_payload = {
+                "member_id": member.get("member_id"), "member_type": role, "section": candidate,
+                "steel": material.get("steel_grade", "Q355"), "span_m": member.get("span_m"),
+                "l0x_m": member.get("l0x_m", member.get("span_m")), "l0y_m": member.get("l0y_m", member.get("span_m")),
+                "N_kn": member.get("N_kn", 0), "Mx_kNm": member.get("Mx_kNm", 0),
+                "My_kNm": member.get("My_kNm", 0), "V_kn": member.get("V_kn", 0),
+                "deflection_mm": member.get("deflection_mm", 0), "structured_output": True,
+            }
+            result = json.loads(_tool_text("check_steel_member", check_payload))
+            if result.get("ok"):
+                results.append((candidate, result))
+        passing = [(name, result) for name, result in results if result.get("passed")]
+        pool = passing or results
+        if pool:
+            selected, result = min(pool, key=lambda row: abs(float(row[1].get("utilization", 0)) - target))
+            chosen[str(member["member_id"])] = selected
+            checks.append({**result, "member_id": member["member_id"], "member_type": role, "section": selected,
+                           "preliminary_only": True})
+    report = {
+        "status": "preliminary", "validation": validation, "knowledge_result": rag,
+        "load_combination": combination, "analysis": analysis, "visualization": visualization, "member_checks": checks,
+        "initial_member_sections": chosen,
+        "handoff": {**req, "initial_member_sections": chosen},
+        "notice": "本流程为初算和截面初选。初选验算使用当前 OpenSees 内力，不会因初选截面变化重新分配内力；请将结果送入截面迭代与优化重新建模验证。",
+    }
+    return {"ok": True, "status": "preliminary", "report": report}
+
+
+INFORMATION_SELECTION_WORKFLOW = RunnableLambda(lambda s: _information_selection(s["request"]))
+
+
+def run_information_selection(request: dict[str, Any]) -> dict[str, Any]:
+    return INFORMATION_SELECTION_WORKFLOW.invoke({"request": request})
+
+
+def _engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
+    report = payload.get("final_report") or payload.get("report") or {}
+    if not report.get("converged") or report.get("status") != "converged":
+        return {"ok": False, "status": "not_converged", "errors": ["仅接受截面迭代工作流已收敛的最终报告"]}
+    checks = report.get("member_checks") or []
+    if not checks or any(not item.get("passed") for item in checks):
+        return {"ok": False, "status": "checks_failed", "errors": ["最终报告缺少构件验算记录或存在未通过构件"]}
+    req = report.get("request") or payload.get("request") or {}
+    analysis = report.get("analysis") or {}
+    geometry = (analysis.get("parameters") or {}).get("geometry") or req.get("geometry") or {}
+    project_name = report.get("project_name") or req.get("project_name") or "钢框架设计方案"
+    check_text = "\n\n".join(f"{c.get('member_id')} | {c.get('section')} | 通过\n{c.get('result_text', '')}" for c in checks)
+    calc = _tool_text("generate_calculation_book", {
+        "project_name": project_name,
+        "chapters": [
+            {"title": "模型输入与假定", "body": json.dumps({"geometry": req.get("geometry"), "loads": req.get("loads"), "material": req.get("material"), "final_sections": report.get("final_sections")}, ensure_ascii=False, indent=2)},
+            {"title": "OpenSees 最终轮分析", "body": json.dumps(analysis.get("results", {}), ensure_ascii=False, indent=2)},
+            {"title": "截面迭代历史", "body": json.dumps(report.get("iterations", []), ensure_ascii=False, indent=2)},
+            {"title": "逐构件验算", "body": check_text},
+        ],
+        "conclusion": "截面迭代工作流的当前模型所提交验算项均通过。该文件属于方案级输出，须由专业工程师复核。",
+    })
+    items = [{"name": c.get("member_id"), "symbol": c.get("member_type"), "value": c.get("section"), "note": "迭代分析模型验算通过"} for c in checks]
+    design = _tool_text("generate_design_outputs", {
+        "project_name": project_name, "bays": geometry.get("bays", 1),
+        "bay_m": (geometry.get("bay_widths_m") or [geometry.get("bay_m", 6)])[0],
+        "height_m": sum(geometry.get("story_heights_m") or [geometry.get("height_m", 3)]),
+        "sections": [{"title": "最终逐构件截面与验算", "items": items}],
+        "conclusion": "基于已收敛的截面迭代结果生成；仅为方案级输出，不作为施工图或审查结论。",
+    })
+    return {"ok": True, "status": "completed", "artifacts": {"calculation_book": calc, "design_outputs": design}}
+
+
+ENGINEERING_OUTPUT_WORKFLOW = RunnableLambda(_engineering_outputs)
+
+
+def run_engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
+    return ENGINEERING_OUTPUT_WORKFLOW.invoke(payload)

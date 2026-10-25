@@ -1,6 +1,6 @@
 # SteelMind Python Tool Gateway
 
-FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。`/workflow/run-stream` 以 SSE 推送 LangChain 工作流的实时阶段与工具输入输出，`/workflow/run` 保留同步调用。规范 RAG 直接读取项目 `Knowledge/07_机器可读规范库/standards.db`，无需另起 8765 HTTP 服务。
+FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。网页将设计拆为三条 LCEL 工作流：`/workflow/information-selection/run-stream` 信息获取与截面初选、`/workflow/section-iteration/run-stream` 截面迭代与优化、`/workflow/engineering-outputs/run-stream` 工程文件输出；各接口以 SSE 推送实际工具输入/输出。规范 RAG 直接读取项目 `Knowledge/07_机器可读规范库/standards.db`，无需另起 8765 HTTP 服务。
 
 ## 启动
 
@@ -17,7 +17,7 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 
 ## 工具要求与输出
 
-- 荷载组合、钢构件验算、OpenSeesPy 分析和成果生成：使用 LangChain 工具接口；整体流程通过 LangChain LCEL 的 `RunnableSequence` 串联，分析后自动遍历 OpenSees 返回的物理构件列表。
+- 参数校验、荷载组合、钢构件验算、OpenSeesPy 分析和成果生成：使用 LangChain 工具接口；工作流通过 LCEL 编排，分析后自动遍历 OpenSees 返回的物理构件列表。
 - 旧版网架筛选：`/invoke/optimize_steel_truss_members` 暂保留为兼容接口，仅供 ANSYS 后处理导出的钢网架杆件 JSON 使用；不读取 `.rst/.db`。新项目钢框架不要调用此单项网架工具，使用下述“截面迭代与优化”工作流。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
 - 规范 RAG：`/knowledge/bases` 返回 07 索引的目录与规范清单；网页可多选来源目录，`source_dirs` 会贯通 `/knowledge/search`、单项工具和 LCEL 地区查询，并与可选的 `standard_ids` 进一步取交集。`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。`Knowledge/` 为本地知识库目录，已加入 Git 忽略规则，网页部署包不会包含规范原文和数据库。
@@ -37,13 +37,19 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 }
 ```
 
-`opensees_frame_verify` 将每根梁/柱离散为 8 段，返回稳定的构件编号（例如 `B-S1-G1`、`C-S1-G1`）、截面、钢材、几何长度、暂定计算长度、分段端部局部力、轴力/弯矩/剪力包络及构件弦线相对横向变形。工作流将这些值交给 `check_steel_member` 逐根验算，并在结果中提供机器可读 `passed`、验算项明细和计算文字；再将未通过构件编号传给 `opensees_frame_visualize`，图中以红色标出。完整流程会生成含逐构件验算和汇总的 Word 计算书。若有构件未通过，报告仍生成，流程状态为 `needs_revision`，并跳过定稿设计文件。
+`opensees_frame_verify` 将每根梁/柱离散为 8 段，返回稳定的构件编号（例如 `B-S1-G1`、`C-S1-G1`）、截面、钢材、几何长度、暂定计算长度、分段端部局部力、轴力/弯矩/剪力包络及构件弦线相对横向变形。工作流将这些值交给 `check_steel_member` 逐根验算，并在结果中提供机器可读 `passed`、验算项明细和计算文字；再将构件验算状态传给 `opensees_frame_visualize` 着色显示。工程文件现在由第三条工作流独立输出。
 
 重要边界：当前分析是二维、线弹性、单次静力工况；弱轴弯矩在平面模型中取 0，轴力按绝对值包络保守传递，计算长度暂按构件几何长度。层间位移角被输出但因未输入项目限值，不自动判定合格。挠度限值使用工具缺省值，须按用途和适用规范核对。截面属性依赖验算工具内置型钢表。此原型不等同多荷载组合包络、完整 GB 50017 设计验算或工程审查，不能据此作安全结论。
 
-## 截面迭代与优化（钢结构框架）
+## 三条设计工作流
 
-网页中“截面迭代与优化”调用 `/workflow/section-iteration/run-stream`（同步接口：`/workflow/section-iteration/run`），由 LCEL 协调以下有界循环：
+1. 信息获取与截面初选：`validate_steel_frame_parameters` 检查参数后，执行本地规范 RAG、荷载组合、OpenSees 初算与梁柱候选截面逐构件初筛。初选沿用当前分析内力，必须交给第二条流程重分析，不代表最终通过。
+2. 截面迭代与优化：网页调用 `/workflow/section-iteration/run-stream`（同步接口仍为 `/workflow/section-iteration/run`），运行下方所述有界迭代；不在此阶段生成工程文件。可从第一条流程导入逐构件初选截面。
+3. 工程文件输出：网页调用 `/workflow/engineering-outputs/run-stream`，只接受第二条流程 `converged` 且每个验算记录都通过的结果，然后依次调用 `generate_calculation_book`、`generate_design_outputs`，生成计算书以及 Excel/Word/DXF 产物。未收敛结果会被拒绝。
+
+### 截面迭代与优化细节
+
+截面迭代工作流由 LCEL 协调以下有界循环：
 
 1. 读取框架几何、线荷载、钢材、初始梁柱截面和梁/柱候选截面序列；
 2. 调用 OpenSeesPy，按当前逐构件截面建立平面框架并重新分析；

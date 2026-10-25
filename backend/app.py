@@ -41,6 +41,7 @@ app.add_middleware(
 )
 
 TOOL_SPECS = {
+    "validate_steel_frame_parameters": ("structural_calc.py", "validate_steel_frame_parameters", "校验钢框架几何、荷载、材料与初选截面参数"),
     "query_region_params": ("__knowledge__", "query_region_params", "从本地规范 RAG 检索地区参数候选依据（需核验）"),
     "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
@@ -305,7 +306,8 @@ def workflow_health() -> dict[str, Any]:
         from langchain_core.runnables import RunnableLambda  # noqa: F401
         from workflow import WORKFLOW  # noqa: F401
         from workflow import SECTION_ITERATION_WORKFLOW  # noqa: F401
-        return {"available": True, "engine": "LangChain LCEL", "workflows": ["steel-design-v1", "steel-frame-section-iteration-v1"]}
+        from workflow import INFORMATION_SELECTION_WORKFLOW, ENGINEERING_OUTPUT_WORKFLOW  # noqa: F401
+        return {"available": True, "engine": "LangChain LCEL", "workflows": ["information-selection-v1", "steel-frame-section-iteration-v1", "engineering-outputs-v1"]}
     except Exception as exc:
         return {"available": False, "engine": "LangChain LCEL", "error": f"{type(exc).__name__}: {exc}"}
 
@@ -372,6 +374,62 @@ def run_section_iteration(request: WorkflowRequest) -> dict[str, Any]:
         return execute_iteration(request.payload)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"截面迭代工作流异常：{type(exc).__name__}: {exc}") from exc
+
+
+@app.post("/workflow/information-selection/run-stream")
+def run_information_selection_stream(request: WorkflowRequest) -> StreamingResponse:
+    try:
+        from workflow import reset_tool_trace_callback, run_information_selection, set_tool_trace_callback
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"信息获取与截面初选工作流不可用：{type(exc).__name__}: {exc}") from exc
+    events: queue.Queue[Any] = queue.Queue()
+    finished = object()
+    def execute() -> None:
+        token = set_tool_trace_callback(events.put)
+        try:
+            events.put({"type": "workflow_started", "workflow": "information_selection"})
+            events.put({"type": "workflow_completed", "result": run_information_selection(request.payload)})
+        except Exception as exc:
+            events.put({"type": "workflow_error", "message": f"{type(exc).__name__}: {exc}"})
+        finally:
+            reset_tool_trace_callback(token)
+            events.put(finished)
+    threading.Thread(target=execute, name="steel-information-selection", daemon=True).start()
+    def stream_events():
+        while True:
+            event = events.get()
+            if event is finished:
+                break
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    return StreamingResponse(stream_events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.post("/workflow/engineering-outputs/run-stream")
+def run_engineering_outputs_stream(request: WorkflowRequest) -> StreamingResponse:
+    try:
+        from workflow import reset_tool_trace_callback, run_engineering_outputs, set_tool_trace_callback
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"工程文件输出工作流不可用：{type(exc).__name__}: {exc}") from exc
+    events: queue.Queue[Any] = queue.Queue()
+    finished = object()
+    def execute() -> None:
+        token = set_tool_trace_callback(events.put)
+        try:
+            events.put({"type": "workflow_started", "workflow": "engineering_outputs"})
+            events.put({"type": "workflow_completed", "result": run_engineering_outputs(request.payload)})
+        except Exception as exc:
+            events.put({"type": "workflow_error", "message": f"{type(exc).__name__}: {exc}"})
+        finally:
+            reset_tool_trace_callback(token)
+            events.put(finished)
+    threading.Thread(target=execute, name="steel-engineering-outputs", daemon=True).start()
+    def stream_events():
+        while True:
+            event = events.get()
+            if event is finished:
+                break
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+    return StreamingResponse(stream_events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.post("/workflow/section-iteration/run-stream")
