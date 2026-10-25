@@ -45,7 +45,7 @@ TOOL_SPECS = {
     "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
-    "optimize_steel_truss_members": ("structural_calc.py", "optimize_steel_truss_members", "按 GB 50017 对 ANSYS 导出的钢网架杆件结果逐根筛查并优选候选截面"),
+    "optimize_steel_truss_members": ("structural_calc.py", "optimize_steel_truss_members", "兼容旧版：对 ANSYS 导出的钢网架杆件结果逐根筛查；钢框架迭代请用 /workflow/section-iteration/run-stream"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
     "opensees_frame_visualize": ("opensees_visualize.py", "opensees_frame_visualize", "生成可拖拽旋转的 OpenSees 框架三维视图"),
     "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成结构计算书"),
@@ -304,7 +304,8 @@ def workflow_health() -> dict[str, Any]:
     try:
         from langchain_core.runnables import RunnableLambda  # noqa: F401
         from workflow import WORKFLOW  # noqa: F401
-        return {"available": True, "engine": "LangChain LCEL", "workflow": "steel-design-v1"}
+        from workflow import SECTION_ITERATION_WORKFLOW  # noqa: F401
+        return {"available": True, "engine": "LangChain LCEL", "workflows": ["steel-design-v1", "steel-frame-section-iteration-v1"]}
     except Exception as exc:
         return {"available": False, "engine": "LangChain LCEL", "error": f"{type(exc).__name__}: {exc}"}
 
@@ -361,6 +362,52 @@ def run_design_workflow_stream(request: WorkflowRequest) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.post("/workflow/section-iteration/run")
+def run_section_iteration(request: WorkflowRequest) -> dict[str, Any]:
+    """Bounded OpenSees → member checks → section update/re-analysis loop."""
+    try:
+        from workflow import run_section_iteration as execute_iteration
+        return execute_iteration(request.payload)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"截面迭代工作流异常：{type(exc).__name__}: {exc}") from exc
+
+
+@app.post("/workflow/section-iteration/run-stream")
+def run_section_iteration_stream(request: WorkflowRequest) -> StreamingResponse:
+    """Stream each OpenSees and GB 50017 screening tool call during iteration."""
+    try:
+        from workflow import reset_tool_trace_callback, run_section_iteration as execute_iteration, set_tool_trace_callback
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"截面迭代工作流不可用：{type(exc).__name__}: {exc}") from exc
+
+    events: queue.Queue[Any] = queue.Queue()
+    finished = object()
+
+    def execute() -> None:
+        token = set_tool_trace_callback(events.put)
+        try:
+            events.put({"type": "workflow_started", "workflow": "section_iteration"})
+            result = execute_iteration(request.payload)
+            events.put({"type": "workflow_completed", "result": result})
+        except Exception as exc:
+            events.put({"type": "workflow_error", "message": f"{type(exc).__name__}: {exc}"})
+        finally:
+            reset_tool_trace_callback(token)
+            events.put(finished)
+
+    threading.Thread(target=execute, name="steel-section-iteration", daemon=True).start()
+
+    def stream_events():
+        while True:
+            event = events.get()
+            if event is finished:
+                break
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(stream_events(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/files/{artifact_id}")

@@ -432,3 +432,229 @@ def run_workflow(request: dict[str, Any]) -> dict[str, Any]:
                              "member_index": 0, "candidate_index": 0, "status": "running"})
     return {"ok": final.get("status") in ("completed", "partial", "needs_revision"), "log": final.get("log", []),
             "report": final.get("report", {}), "status": final.get("status", "failed")}
+
+
+def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
+    req = state["request"]
+    geometry, loads = req.get("geometry") or {}, req.get("loads") or {}
+    sections, candidates = req.get("model_sections") or {}, req.get("candidate_sections") or {}
+    missing = [key for key in ("bays", "stories") if geometry.get(key) in (None, "")]
+    if geometry.get("bay_widths_m") is None and geometry.get("bay_m") in (None, ""):
+        missing.append("geometry.bay_m / bay_widths_m")
+    if geometry.get("story_heights_m") is None and geometry.get("height_m") in (None, ""):
+        missing.append("geometry.height_m / story_heights_m")
+    if loads.get("q_by_story_kN_per_m") is None and loads.get("q_kNm") is None:
+        missing.append("loads.q_by_story_kN_per_m")
+    if missing:
+        return {"status": "needs_input", "errors": ["缺少必要输入：" + ", ".join(missing)]}
+    for role in ("beam", "column"):
+        initial = sections.get(f"{role}_section") or (sections.get(role) or {}).get("name")
+        values = candidates.get(role)
+        if not initial or not isinstance(values, list) or not values:
+            return {"status": "needs_input", "errors": [f"请提供 model_sections.{role}_section 和 candidate_sections.{role}（按截面由小到大）"]}
+        names = [str(item).strip() for item in values if str(item).strip()]
+        if initial not in names:
+            return {"status": "needs_input", "errors": [f"{role}初始截面 {initial} 必须包含在 candidate_sections.{role} 中"]}
+        if names != values:
+            candidates[role] = names
+    try:
+        max_iterations = int(req.get("max_iterations", 8))
+        if not 1 <= max_iterations <= 20:
+            raise ValueError("max_iterations 必须为 1 到 20 的整数")
+        target_utilization = float(req.get("target_utilization", 0.85))
+        if not 0.6 <= target_utilization <= 0.9:
+            raise ValueError("target_utilization 必须在 0.60 到 0.90 之间")
+    except (TypeError, ValueError) as exc:
+        return {"status": "needs_input", "errors": [str(exc)]}
+    return {"status": "running", "request": {**req, "max_iterations": max_iterations,
+                                                  "target_utilization": target_utilization},
+            "section_map": {}, "iteration_history": [], "errors": []}
+
+
+def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
+    """Analyze, check each physical frame member, resize, and re-analyze (bounded)."""
+    if state.get("status") != "running":
+        return state
+    from app import TOOLS
+
+    req = state["request"]
+    geometry, loads = req["geometry"], req["loads"]
+    model_sections = req["model_sections"]
+    beam_initial = model_sections.get("beam_section") or model_sections.get("beam", {}).get("name")
+    col_initial = model_sections.get("column_section") or model_sections.get("column", {}).get("name")
+    section_map: dict[str, str] = {}
+    history: list[dict[str, Any]] = []
+    final_analysis: dict[str, Any] = {}
+    final_checks: list[dict[str, Any]] = []
+    status = "max_iterations"
+    steel = (req.get("material") or {}).get("steel_grade", "Q355")
+    check_options = req.get("check_options") or {}
+
+    for iteration in range(1, req["max_iterations"] + 1):
+        analysis_payload = {
+            "geometry": geometry, "loads": loads, "material": req.get("material", {}),
+            "sections": {"beam": {"name": beam_initial}, "column": {"name": col_initial}},
+            "member_sections": section_map, "iteration": iteration,
+        }
+        try:
+            analysis_raw = _tool_text("opensees_frame_verify", analysis_payload)
+            analysis_response = json.loads(analysis_raw)
+            if not analysis_response.get("ok"):
+                raise RuntimeError(analysis_response.get("error", analysis_raw))
+            final_analysis = analysis_response
+            analyzed_members = analysis_response.get("results", {}).get("members", [])
+            if not analyzed_members:
+                raise RuntimeError("OpenSees 未返回任何梁柱构件")
+        except Exception as exc:
+            return {"status": "failed", "errors": [f"第 {iteration} 轮 OpenSees 分析失败：{exc}"],
+                    "section_map": section_map, "iteration_history": history,
+                    "analysis_result": json.dumps(final_analysis, ensure_ascii=False)}
+
+        updated_map = dict(section_map)
+        iteration_checks: list[dict[str, Any]] = []
+        failed_ids: list[str] = []
+        changed_ids: list[dict[str, str]] = []
+        for member in analyzed_members:
+            mid, role = str(member["member_id"]), str(member["member_type"])
+            current = section_map.get(mid, member.get("section", ""))
+            base_check = {
+                **{key: value for key, value in check_options.items() if key in {"section_class_x", "section_class_y", "beta_mx", "beta_b", "eta_b", "deflection_ratio"}},
+                "member_id": mid, "member_type": role, "section": current, "steel": steel,
+                "span_m": member.get("span_m"), "l0x_m": member.get("l0x_m", member.get("span_m")),
+                "l0y_m": member.get("l0y_m", member.get("span_m")),
+                "N_kn": member.get("N_kn", 0), "Mx_kNm": member.get("Mx_kNm", 0),
+                "My_kNm": member.get("My_kNm", 0), "V_kn": member.get("V_kn", 0),
+                "deflection_mm": member.get("deflection_mm", 0),
+                "structured_output": True, "iteration": iteration,
+            }
+            try:
+                current_result = json.loads(_tool_text("check_steel_member", base_check))
+                if not current_result.get("ok"):
+                    raise RuntimeError(current_result.get("error", "验算器未返回有效结果"))
+            except Exception as exc:
+                return {"status": "failed", "errors": [f"第 {iteration} 轮构件 {mid} 验算调用失败：{exc}"],
+                        "section_map": section_map, "iteration_history": history,
+                        "analysis_result": json.dumps(final_analysis, ensure_ascii=False)}
+            selected = current
+            selected_check = current_result
+            if iteration == 1 or not current_result.get("passed", False):
+                if not current_result.get("passed", False):
+                    failed_ids.append(mid)
+                candidate_list = (req.get("candidate_sections") or {}).get(role, [])
+                try:
+                    current_idx = candidate_list.index(current)
+                except ValueError:
+                    current_idx = -1
+                start_idx = 0 if iteration == 1 else current_idx + 1
+                # The first pass seeks a passing section near the target utilization.
+                # Later passes only move upward, which prevents section oscillation.
+                passing_candidates: list[tuple[float, int, str, dict[str, Any]]] = []
+                last_candidate: tuple[str, dict[str, Any]] | None = None
+                for candidate_index, candidate in enumerate(candidate_list[start_idx:], start=start_idx):
+                    if candidate == current:
+                        result = current_result
+                    else:
+                        candidate_payload = {**base_check, "section": candidate}
+                        result = json.loads(_tool_text("check_steel_member", candidate_payload))
+                    if not result.get("ok"):
+                        raise RuntimeError(result.get("error", f"{mid} 候选截面 {candidate} 验算失败"))
+                    last_candidate = (candidate, result)
+                    if result.get("passed", False):
+                        util = float(result.get("utilization", 0.0))
+                        passing_candidates.append((abs(util - req["target_utilization"]), candidate_index, candidate, result))
+                if passing_candidates:
+                    _, _, selected, selected_check = min(passing_candidates, key=lambda item: (item[0], item[1]))
+                elif last_candidate:
+                    selected, selected_check = last_candidate
+                if selected != current and iteration < req["max_iterations"]:
+                    updated_map[mid] = selected
+                    changed_ids.append({"member_id": mid, "from": current, "to": selected})
+                elif iteration >= req["max_iterations"]:
+                    # Do not report candidate checks as final results unless that
+                    # candidate was actually used in an OpenSees analysis cycle.
+                    selected, selected_check = current, current_result
+            iteration_checks.append({**selected_check, "member_id": mid, "member_type": role,
+                                     "section": selected, "analysis_section": current,
+                                     "analysis_demands": {key: member.get(key) for key in ("N_kn", "Mx_kNm", "My_kNm", "V_kn", "deflection_mm")}})
+
+        all_pass_current = all(item.get("passed", False) for item in iteration_checks)
+        history.append({"iteration": iteration, "analyzed_sections": {m["member_id"]: section_map.get(m["member_id"], m["section"]) for m in analyzed_members},
+                        "member_count": len(iteration_checks), "failed_before_resize": failed_ids,
+                        "changes": changed_ids, "passed_after_resize_on_current_forces": sum(bool(c.get("passed")) for c in iteration_checks)})
+        final_checks = iteration_checks
+        if all_pass_current and not changed_ids:
+            status = "converged"
+            break
+        if iteration == req["max_iterations"]:
+            status = "max_iterations"
+            break
+        if not changed_ids:
+            status = "needs_revision"
+            break
+        section_map = updated_map
+
+    # If the last loop upgraded sections at its end, its checks correspond to the
+    # previous model. Require a final analysis/check pass before claiming convergence.
+    converged_checked = bool(history and status == "converged")
+    vis_result = ""
+    try:
+        statuses = [{"member_id": c.get("member_id"), "member_type": c.get("member_type"),
+                     "passed": c.get("passed"), "section": c.get("section"), "steel": c.get("steel"),
+                     "span_m": c.get("span_m"), "demands": c.get("demands"), "checks": c.get("checks", []),
+                     "result": c.get("result_text", ""), "error": c.get("error")} for c in final_checks]
+        vis_result = _tool_text("opensees_frame_visualize", {"parameters": final_analysis.get("parameters", {}), "member_checks": statuses})
+    except Exception as exc:
+        state.setdefault("errors", []).append(f"三维可视化生成失败：{exc}")
+    artifacts = {}
+    try:
+        check_text = "\n\n".join(f"{c.get('member_id')} | {c.get('section')} | {'通过' if c.get('passed') else '未通过'}\n{c.get('result_text','')}" for c in final_checks)
+        calc = _tool_text("generate_calculation_book", {
+            "project_name": req.get("project_name", "钢框架截面迭代与优化"),
+            "chapters": [
+                {"title": "模型输入与假定", "body": json.dumps({"geometry": geometry, "loads": loads, "material": req.get("material"), "initial_sections": model_sections, "final_sections": section_map or {"beam": beam_initial, "column": col_initial}}, ensure_ascii=False, indent=2)},
+                {"title": "OpenSees 最终轮分析", "body": json.dumps(final_analysis.get("results", {}), ensure_ascii=False, indent=2)},
+                {"title": "迭代历史", "body": json.dumps(history, ensure_ascii=False, indent=2)},
+                {"title": "逐构件验算", "body": check_text},
+            ],
+            "conclusion": f"迭代状态：{status}；已执行 {len(history)} 轮。" + ("当前提交的验算项均通过，仍须专业工程师复核。" if converged_checked else "尚未收敛到全部通过；请调整候选截面、模型或参数后复算。"),
+        })
+        artifacts["calculation_book"] = calc
+        if converged_checked:
+            geo = final_analysis.get("parameters", {}).get("geometry", geometry)
+            member_items = [{"name": c.get("member_id"), "symbol": c.get("member_type"),
+                             "value": c.get("section"), "note": "当前模型验算项通过" if c.get("passed") else "未通过"}
+                            for c in final_checks]
+            artifacts["design_outputs"] = _tool_text("generate_design_outputs", {
+                "project_name": req.get("project_name", "钢框架截面迭代方案"),
+                "bays": geo.get("bays", 1),
+                "bay_m": (geo.get("bay_widths_m") or [geo.get("bay_m", 6)])[0],
+                "height_m": sum(geo.get("story_heights_m") or [geo.get("height_m", 3)]),
+                "sections": [{"title": "最终逐构件截面与验算", "items": member_items}],
+                "conclusion": "截面迭代工作流的当前模型已完成所实现的逐构件验算项。该文件属于方案级输出，须由专业工程师复核，不作为施工图或审查结论。",
+            })
+    except Exception as exc:
+        state.setdefault("errors", []).append(f"计算书生成失败：{exc}")
+
+    final_sections = dict(section_map)
+    for member in final_checks:
+        final_sections[member["member_id"]] = member.get("section")
+    report = {"project_name": req.get("project_name", "钢框架截面迭代与优化"), "status": status,
+              "converged": converged_checked, "iterations": history, "final_sections": final_sections,
+              "member_checks": final_checks, "analysis": final_analysis,
+              "visualization": vis_result, "artifacts": artifacts, "errors": state.get("errors", []),
+              "engineering_notice": "本功能为二维线弹性单静力工况的方案级迭代原型。轴力采用绝对值包络，弱轴弯矩取零，计算长度暂按几何长度；当前 GB 50017 验算器仍含筛查性简化。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
+    return {"status": status, "report": report}
+
+
+SECTION_ITERATION_WORKFLOW = (
+    RunnableLambda(lambda s: {**s, **_iteration_input(s)})
+    | RunnableLambda(lambda s: {**s, **_section_iteration_loop(s)})
+    | RunnableLambda(lambda s: {**s, "result": s.get("report", {"status": s.get("status"), "errors": s.get("errors", [])})})
+)
+
+
+def run_section_iteration(request: dict[str, Any]) -> dict[str, Any]:
+    final = SECTION_ITERATION_WORKFLOW.invoke({"request": request})
+    status = final.get("status", "failed")
+    return {"ok": status in {"converged", "needs_revision", "max_iterations"},
+            "status": status, "report": final.get("result", {})}

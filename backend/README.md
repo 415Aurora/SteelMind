@@ -18,7 +18,7 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 ## 工具要求与输出
 
 - 荷载组合、钢构件验算、OpenSeesPy 分析和成果生成：使用 LangChain 工具接口；整体流程通过 LangChain LCEL 的 `RunnableSequence` 串联，分析后自动遍历 OpenSees 返回的物理构件列表。
-- 钢网架 ANSYS 结果截面筛选：`/invoke/optimize_steel_truss_members` 接受 ANSYS 后处理导出的杆件 JSON（不读取 `.rst/.db`），按显式单位制与轴力符号约定逐杆筛查，并从用户给定的候选截面中选取通过项里面积最小者。每根构件需给 `member_id`、`N/Mx/My_weak/Vy/Vz`、`length`、`l0x/l0y`、`candidate_sections`；顶层给 `unit_system`（`N_mm` 或 `kN_m`）、`axial_sign`（`compression_positive` 或 `tension_positive`）和钢材牌号。截面曲线类别、βmx/βb、侧向支承、荷载组合与连接条件须根据真实模型填写；暂不支持复杂双向压弯完整稳定验算，不能将筛查输出作为工程签审结论。
+- 旧版网架筛选：`/invoke/optimize_steel_truss_members` 暂保留为兼容接口，仅供 ANSYS 后处理导出的钢网架杆件 JSON 使用；不读取 `.rst/.db`。新项目钢框架不要调用此单项网架工具，使用下述“截面迭代与优化”工作流。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
 - 规范 RAG：`/knowledge/bases` 返回 07 索引的目录与规范清单；网页可多选来源目录，`source_dirs` 会贯通 `/knowledge/search`、单项工具和 LCEL 地区查询，并与可选的 `standard_ids` 进一步取交集。`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。`Knowledge/` 为本地知识库目录，已加入 Git 忽略规则，网页部署包不会包含规范原文和数据库。
 - 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
@@ -40,6 +40,35 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 `opensees_frame_verify` 将每根梁/柱离散为 8 段，返回稳定的构件编号（例如 `B-S1-G1`、`C-S1-G1`）、截面、钢材、几何长度、暂定计算长度、分段端部局部力、轴力/弯矩/剪力包络及构件弦线相对横向变形。工作流将这些值交给 `check_steel_member` 逐根验算，并在结果中提供机器可读 `passed`、验算项明细和计算文字；再将未通过构件编号传给 `opensees_frame_visualize`，图中以红色标出。完整流程会生成含逐构件验算和汇总的 Word 计算书。若有构件未通过，报告仍生成，流程状态为 `needs_revision`，并跳过定稿设计文件。
 
 重要边界：当前分析是二维、线弹性、单次静力工况；弱轴弯矩在平面模型中取 0，轴力按绝对值包络保守传递，计算长度暂按构件几何长度。层间位移角被输出但因未输入项目限值，不自动判定合格。挠度限值使用工具缺省值，须按用途和适用规范核对。截面属性依赖验算工具内置型钢表。此原型不等同多荷载组合包络、完整 GB 50017 设计验算或工程审查，不能据此作安全结论。
+
+## 截面迭代与优化（钢结构框架）
+
+网页中“截面迭代与优化”调用 `/workflow/section-iteration/run-stream`（同步接口：`/workflow/section-iteration/run`），由 LCEL 协调以下有界循环：
+
+1. 读取框架几何、线荷载、钢材、初始梁柱截面和梁/柱候选截面序列；
+2. 调用 OpenSeesPy，按当前逐构件截面建立平面框架并重新分析；
+3. 对 OpenSees 返回的每根梁柱调用 GB 50017 构件验算工具；
+4. 首轮遍历候选截面，读取各验算项利用率，优先选择验算通过且最接近目标利用率（默认 0.85）的截面；更新全框架逐构件截面后重新运行 OpenSees；后续若重分析后出现不通过，只向更大截面调整，避免截面来回振荡；
+5. 仅当“实际用于最终 OpenSees 分析的截面”逐构件验算均通过时标记 `converged`。候选耗尽、调用失败或迭代上限则返回 `needs_revision`、`failed` 或 `max_iterations`，并附轮次、截面变化、结果可视化与计算书（如工具可用）。
+
+`candidate_sections.beam` 与 `.column` 必须按由轻到重排序，并分别包含初始截面；`target_utilization` 可设为 0.60–0.90，默认 0.85；`max_iterations` 为 1–20，默认 8。示例：
+
+```json
+{
+  "geometry": {"bays": 1, "stories": 1, "bay_m": 6, "height_m": 3, "base_support": "fixed"},
+  "loads": {"q_by_story_kN_per_m": [10], "lateral_by_story_kN": [5]},
+  "material": {"steel_grade": "Q355"},
+  "model_sections": {"beam_section": "HN400x200", "column_section": "HW250x250"},
+  "candidate_sections": {
+    "beam": ["HN300x150", "HN350x175", "HN400x200", "HM400x300"],
+    "column": ["HW200x200", "HW250x250", "HM300x200", "HM350x250"]
+  },
+  "target_utilization": 0.85,
+  "max_iterations": 8
+}
+```
+
+这是以利用率目标为引导的离散截面候选筛选与结构重分析，不是包含全局质量目标、构件组约束和多工况包络的连续数学优化器。OpenSees 目前为二维线弹性、单静力工况，轴力取绝对值包络、弱轴弯矩取零、计算长度暂按构件几何长度；钢构件验算器中若干稳定/板件检查仍为筛查性实现。`converged` 只说明该模型输入和已实现检查项未报告失败，不能宣称完整符合规范或直接用于施工。
 
 ```powershell
 $env:COZE_BUCKET_ENDPOINT_URL = 'https://你的对象存储端点'
