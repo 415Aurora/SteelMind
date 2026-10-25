@@ -204,8 +204,11 @@ def _visualize(state: WorkflowState) -> dict[str, Any]:
         analysis = json.loads(analysis_text)
         if not analysis.get("ok") or not analysis.get("parameters"):
             return {}
-        statuses = [{"member_id": c.get("member_id"), "passed": c.get("passed"),
-                     "section": c.get("section"), "checks": c.get("checks", [])}
+        statuses = [{"member_id": c.get("member_id"), "member_type": c.get("member_type"),
+                     "passed": c.get("passed"), "section": c.get("section"),
+                     "steel": c.get("steel"), "span_m": c.get("span_m"),
+                     "demands": c.get("demands"), "checks": c.get("checks", []),
+                     "result": c.get("result"), "error": c.get("error")}
                     for c in state.get("checks", [])]
         result = _tool_text("opensees_frame_visualize", {
             "parameters": analysis["parameters"], "member_checks": statuses})

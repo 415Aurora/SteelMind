@@ -92,7 +92,7 @@
     <div class="viewer-controls"><div class="hint" id="viewerParameterSummary">当前参数将提交给 OpenSees 三维可视化工具。</div><button class="btn primary" id="runModelView">生成 / 更新三维模型</button></div>
     <div class="viewer-status" id="viewerStatus" role="status">待生成 · 请先确认左侧工具服务已连接。</div>
     <div class="viewer-frame-wrap"><iframe class="viewer-frame" id="viewerFrame" title="OpenSees 钢框架交互式三维模型" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy"></iframe></div>
-    <p class="viewer-note">说明：此工具将 OpenSees 分析平面转换为交互式三维视图，不表示已建立面外构件或空间计算模型。图形可拖动旋转，滚轮缩放，Shift/右键拖动平移。</p>
+    <p class="viewer-note">说明：此工具将 OpenSees 分析平面转换为交互式三维视图，不表示已建立面外构件或空间计算模型。完整工作流生成且逐构件验算数据可用时，点击梁柱可查看验算结论、内力与各项指标；仅生成几何视图时会明确显示未验算。图形可拖动旋转，滚轮缩放，Shift/右键拖动平移。</p>
   </section>
   <section class="card cad-workspace" id="cadWorkspace" aria-labelledby="cadTitle">
     <div class="cad-head"><div><h2 class="module-heading" id="cadTitle"><span class="module-index">07</span>CAD 图纸查看与在线编辑</h2><p>可直接加载完整工作流生成的 DXF，或上传本地 DXF；当前支持查看和编辑 LINE 线段，并可导出编辑后的 DXF。</p></div></div>
