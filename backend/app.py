@@ -45,6 +45,7 @@ TOOL_SPECS = {
     "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
+    "optimize_steel_truss_members": ("structural_calc.py", "optimize_steel_truss_members", "按 GB 50017 对 ANSYS 导出的钢网架杆件结果逐根筛查并优选候选截面"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
     "opensees_frame_visualize": ("opensees_visualize.py", "opensees_frame_visualize", "生成可拖拽旋转的 OpenSees 框架三维视图"),
     "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成结构计算书"),

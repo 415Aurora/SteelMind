@@ -18,6 +18,7 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 ## 工具要求与输出
 
 - 荷载组合、钢构件验算、OpenSeesPy 分析和成果生成：使用 LangChain 工具接口；整体流程通过 LangChain LCEL 的 `RunnableSequence` 串联，分析后自动遍历 OpenSees 返回的物理构件列表。
+- 钢网架 ANSYS 结果截面筛选：`/invoke/optimize_steel_truss_members` 接受 ANSYS 后处理导出的杆件 JSON（不读取 `.rst/.db`），按显式单位制与轴力符号约定逐杆筛查，并从用户给定的候选截面中选取通过项里面积最小者。每根构件需给 `member_id`、`N/Mx/My_weak/Vy/Vz`、`length`、`l0x/l0y`、`candidate_sections`；顶层给 `unit_system`（`N_mm` 或 `kN_m`）、`axial_sign`（`compression_positive` 或 `tension_positive`）和钢材牌号。截面曲线类别、βmx/βb、侧向支承、荷载组合与连接条件须根据真实模型填写；暂不支持复杂双向压弯完整稳定验算，不能将筛查输出作为工程签审结论。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
 - 规范 RAG：`/knowledge/bases` 返回 07 索引的目录与规范清单；网页可多选来源目录，`source_dirs` 会贯通 `/knowledge/search`、单项工具和 LCEL 地区查询，并与可选的 `standard_ids` 进一步取交集。`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。`Knowledge/` 为本地知识库目录，已加入 Git 忽略规则，网页部署包不会包含规范原文和数据库。
 - 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
