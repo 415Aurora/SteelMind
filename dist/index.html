@@ -92,7 +92,7 @@
     <div class="viewer-controls"><div class="hint" id="viewerParameterSummary">当前参数将提交给 OpenSees 三维可视化工具。</div><button class="btn primary" id="runModelView">生成 / 更新三维模型</button></div>
     <div class="viewer-status" id="viewerStatus" role="status">待生成 · 请先确认左侧工具服务已连接。</div>
     <div class="viewer-frame-wrap"><iframe class="viewer-frame" id="viewerFrame" title="OpenSees 钢框架交互式三维模型" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy"></iframe></div>
-    <p class="viewer-note">说明：此工具将 OpenSees 分析平面转换为交互式三维视图，不表示已建立面外构件或空间计算模型。完整工作流生成且逐构件验算数据可用时，点击梁柱可查看验算结论、内力与各项指标；仅生成几何视图时会明确显示未验算。图形可拖动旋转，滚轮缩放，Shift/右键拖动平移。</p>
+    <p class="viewer-note">说明：此工具将 OpenSees 分析平面转换为交互式三维视图，不表示已建立面外构件或空间计算模型。点击梁柱可查看对应 H/I 型截面轮廓、截面尺寸、面积与惯性矩；有逐构件验算数据时同步显示验算结论和内力。自定义截面若缺少 h、b、tw、tf 几何尺寸，会明确提示未绘制。图形可拖动旋转，滚轮缩放，Shift/右键拖动平移。</p>
   </section>
   <section class="card cad-workspace" id="cadWorkspace" aria-labelledby="cadTitle">
     <div class="cad-head"><div><h2 class="module-heading" id="cadTitle"><span class="module-index">07</span>CAD 图纸查看与在线编辑</h2><p>可直接加载完整工作流生成的 DXF，或上传本地 DXF；当前支持查看和编辑 LINE 线段，并可导出编辑后的 DXF。</p></div></div>
@@ -166,6 +166,7 @@ const toolDefaults={
   optimize_steel_truss_members:{unit_system:'N_mm',axial_sign:'compression_positive',steel:'Q355',members:[{member_id:'C-01',member_type:'column',section_class_x:'b',section_class_y:'c',beta_mx:1,N:180000,Mx:0,My_weak:0,Vy:0,Vz:0,length_mm:3000,l0x_mm:3000,l0y_mm:3000,candidate_sections:['HN300x150','HN400x200']}]},
   opensees_frame_verify:{geometry:{bays:2,bay_widths_m:[6,7],stories:2,story_heights_m:[3.5,3.2],base_support:'fixed'},material:{steel_grade:'Q355',E_MPa:206000,Fy_MPa:355},sections:{beam:{A_mm2:12000,Iz_mm4:2.5e8},column:{A_mm2:15000,Iz_mm4:4e8}},loads:{q_by_story_kN_per_m:[8,10],lateral_by_story_kN:[20,30]}},
   opensees_frame_visualize:{geometry:{bays:2,bay_widths_m:[6,7],stories:2,story_heights_m:[3.5,3.2],base_support:'fixed'},material:{steel_grade:'Q355'},sections:{beam:{name:'HN400x200'},column:{name:'HW250x250'}}},
+  draw_steel_section:{section:'HN400x200'},
   search_steel_standards:{query:'',top_k:5},
   query_region_params:{region:'',items:['基本风压','基本雪压','抗震设防烈度','设计基本地震加速度','设计地震分组','设计反应谱特征周期','地面粗糙度','结构安全等级','建筑抗震设防类别','地基基础设计等级']},
   generate_calculation_book:{project_name:'钢结构初步设计',chapters:[{title:'设计依据与输入参数',body:'请根据项目实际参数补充本章节。'},{title:'计算与验算结果',body:'待工具计算结果填入。'}],conclusion:'初步成果，需由专业工程师复核。'},
@@ -251,7 +252,7 @@ $('#demoBtn').onclick=()=>ask('请演示一次钢结构智能设计任务分解'
 document.querySelectorAll('.toolBtn').forEach(b=>b.onclick=()=>{ask(`请为“${b.dataset.task}”设计一个初版工作流，列出输入、计算步骤、输出和验证要求。`)});
 $('#modelFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(!window.XLSX){$('#fileStatus').textContent='Excel 读取组件加载失败，请刷新页面后重试';return}try{const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array'});const sections=[];let total=0;for(const name of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:'',raw:false});if(name==='ReadMe')continue;total+=rows.length;sections.push(`[${name}]\n${JSON.stringify(rows.slice(0,80))}`)}uploadedContext=sections.join('\n').slice(0,18000);$('#fileStatus').textContent=`已读取 ${file.name} · ${wb.SheetNames.length} 个工作表 · ${total} 行`;persistConversation();add('assistant',`已读取模型参数文件“${file.name}”。共识别 ${wb.SheetNames.length} 个工作表、${total} 行数据。接下来你可以让我检查缺失字段、生成建模摘要，或继续进行截面、荷载和分析工作。`)}catch(err){uploadedContext='';persistConversation();$('#fileStatus').textContent='读取失败：'+err.message}});
 renderToolParameterTable($('#toolName').value,toolDefaults[$('#toolName').value]||{});$('#toolName').addEventListener('change',()=>{try{if(renderedToolName)readToolParameterTable(renderedToolName)}catch{}const name=$('#toolName').value;renderToolParameterTable(name,toolDrafts[name]||toolDefaults[name]||{})});
-renderParameterTable('#workflowParams',workflowDraft);renderParameterTable('#iterationParams',sectionIterationDraft);const legacyGridOption=document.querySelector('#toolName option[value="optimize_steel_truss_members"]');if(legacyGridOption)legacyGridOption.textContent='旧版 ANSYS 网架结果筛选（兼容）';refreshKnowledgeInventory();
+renderParameterTable('#workflowParams',workflowDraft);renderParameterTable('#iterationParams',sectionIterationDraft);const legacyGridOption=document.querySelector('#toolName option[value="optimize_steel_truss_members"]');if(legacyGridOption)legacyGridOption.textContent='旧版 ANSYS 网架结果筛选（兼容）';const sectionDrawerOption=document.createElement('option');sectionDrawerOption.value='draw_steel_section';sectionDrawerOption.textContent='型钢截面绘制与属性';$('#toolName').append(sectionDrawerOption);refreshKnowledgeInventory();
 $('#fillWorkflowFromChat').onclick=()=>fillParameterTableFromChat('workflow');$('#fillIterationFromChat').onclick=()=>fillParameterTableFromChat('iteration');$('#fillToolFromChat').onclick=()=>fillParameterTableFromChat('tool');
 const viewerDefault={geometry:{bays:2,bay_widths_m:[6,7],stories:2,story_heights_m:[3.5,3.2],base_support:'fixed'},material:{steel_grade:'Q355'},sections:{beam:{name:'HN400x200'},column:{name:'HW250x250'}}};
 let viewerDraft=structuredClone(viewerDefault);

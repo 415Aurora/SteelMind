@@ -49,6 +49,7 @@ TOOL_SPECS = {
     "optimize_steel_truss_members": ("structural_calc.py", "optimize_steel_truss_members", "兼容旧版：对 ANSYS 导出的钢网架杆件结果逐根筛查；钢框架迭代请用 /workflow/section-iteration/run-stream"),
     "opensees_frame_verify": ("opensees_analysis.py", "opensees_frame_verify", "运行 OpenSeesPy 平面框架静力验证"),
     "opensees_frame_visualize": ("opensees_visualize.py", "opensees_frame_visualize", "生成可拖拽旋转的 OpenSees 框架三维视图"),
+    "draw_steel_section": ("opensees_visualize.py", "draw_steel_section", "根据型钢型号绘制截面并返回几何尺寸与截面特性"),
     "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成结构计算书"),
     "generate_design_outputs": ("generate_design_files.py", "generate_design_outputs", "生成 Excel、Word 和 DXF 设计产物"),
 }
