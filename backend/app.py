@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", r"C:\Users\Administrator\Downloads")).expanduser()
+SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", str(Path(__file__).resolve().parent / "tool_sources"))).expanduser().resolve()
 ARTIFACT_DIR = Path(os.getenv("STEEL_ARTIFACT_DIR", str(Path(__file__).parent / "artifacts"))).resolve()
 SITE_ORIGIN = "https://steelmind-design-assistant.siwuxiegroup.chatgpt.site"
 DEFAULT_ORIGINS = [SITE_ORIGIN, "http://localhost:8080", "http://127.0.0.1:8080"]
@@ -52,6 +52,7 @@ TOOL_SPECS = {
     "draw_steel_section": ("opensees_visualize.py", "draw_steel_section", "根据型钢型号绘制截面并返回几何尺寸与截面特性"),
     "generate_calculation_book": ("generate_design_files.py", "generate_calculation_book", "生成结构计算书"),
     "generate_design_outputs": ("generate_design_files.py", "generate_design_outputs", "生成 Excel、Word 和 DXF 设计产物"),
+    "generate_construction_drawing_package": ("engineering_drawings.py", "generate_construction_drawing_package", "将工作流2收敛结果映射为可追溯 DesignBundle 并生成计算书、结果表与二维 DXF 方案图包"),
 }
 TOOLS: dict[str, Any] = {}
 LOAD_ERRORS: dict[str, str] = {}
@@ -62,7 +63,7 @@ class LocalArtifactStorage:
 
     def upload_file(self, *, file_content: bytes, file_name: str, content_type: str = "application/octet-stream", **_: Any) -> str:
         ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
-        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(file_name).name).strip("._") or "artifact.bin"
+        safe_name = re.sub(r"[^\w.-]+", "_", Path(file_name).name, flags=re.UNICODE).strip("._") or "artifact.bin"
         artifact_id = f"{uuid4().hex}_{safe_name}"
         target = (ARTIFACT_DIR / artifact_id).resolve()
         if target.parent != ARTIFACT_DIR:
@@ -212,6 +213,8 @@ def load_tools() -> None:
             if module is None:
                 module = _load_module(filename)
                 module_cache[filename] = module
+            if filename == "engineering_drawings.py":
+                sys.modules["engineering_drawings"] = module
             TOOLS[attr] = getattr(module, attr)
             if filename == "generate_design_files.py" and not _s3_is_configured():
                 module._get_storage = LocalArtifactStorage
@@ -236,6 +239,11 @@ def _availability_error(name: str) -> str | None:
                 return "未安装 openseespy；请在工具服务所用 Python 环境安装 OpenSeesPy。"
         except (ImportError, ModuleNotFoundError, ValueError):
             return "未安装 openseespy；请在工具服务所用 Python 环境安装 OpenSeesPy。"
+    if name == "generate_construction_drawing_package":
+        missing = [module for module in ("ezdxf", "matplotlib", "pypdfium2", "pypdf")
+                   if importlib.util.find_spec(module) is None]
+        if missing:
+            return "施工图成果包依赖未安装：" + ", ".join(missing) + "；请按 backend/requirements.txt 安装。"
     return None
 
 

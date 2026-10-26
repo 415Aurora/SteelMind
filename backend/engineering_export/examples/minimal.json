@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "单跨钢梁 · 最小输入",
+    "phase": "方案设计",
+    "designer": "",
+    "institution": "",
+    "student_id": "",
+    "date": "",
+    "assumptions": [
+      "二维杆系；坐标单位 m；截面尺寸单位 mm"
+    ],
+    "limitations": [
+      "几何输入示例；未提供分析或规范验算"
+    ]
+  },
+  "model": {
+    "nodes": [
+      {
+        "id": "N1",
+        "x_m": 0.0,
+        "y_m": 0.0
+      },
+      {
+        "id": "N2",
+        "x_m": 6.0,
+        "y_m": 0.0
+      }
+    ],
+    "members": [
+      {
+        "id": "B1",
+        "node_i": "N1",
+        "node_j": "N2",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": true,
+        "release_j": true
+      }
+    ],
+    "materials": [
+      {
+        "id": "Q235",
+        "name": "Q235 teaching material",
+        "E_MPa": 206000.0,
+        "fy_MPa": 235.0,
+        "source": "Illustrative material input; verify project specification"
+      }
+    ],
+    "sections": [
+      {
+        "id": "H300",
+        "name": "H300×200×8×12",
+        "shape": "H",
+        "h_mm": 300.0,
+        "b_mm": 200.0,
+        "tw_mm": 8.0,
+        "tf_mm": 12.0,
+        "A_mm2": 7008.0,
+        "Ix_mm4": 113606784.0,
+        "Iy_mm4": 16011776.0,
+        "Wx_mm3": 757378.56,
+        "Wy_mm3": 160117.76,
+        "property_basis": "idealized",
+        "source": "Idealized rectangular decomposition, no root radii"
+      }
+    ],
+    "supports": [
+      {
+        "node_id": "N1",
+        "ux": true,
+        "uy": true,
+        "rz": false
+      },
+      {
+        "node_id": "N2",
+        "ux": false,
+        "uy": true,
+        "rz": false
+      }
+    ]
+  },
+  "load_cases": [],
+  "combinations": [],
+  "analysis": {
+    "node_displacements": [],
+    "reactions": [],
+    "member_end_forces": [],
+    "member_samples": []
+  },
+  "checks": [],
+  "traces": [],
+  "provenance": {
+    "data_kind": "upstream",
+    "tool_versions": {},
+    "source": "User-editable minimal geometry",
+    "run_id": "minimal-v1"
+  }
+}

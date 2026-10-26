@@ -1,6 +1,6 @@
 # SteelMind Python Tool Gateway
 
-FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。网页将设计拆为三条 LCEL 工作流：`/workflow/information-selection/run-stream` 信息获取与截面初选、`/workflow/section-iteration/run-stream` 截面迭代与优化、`/workflow/engineering-outputs/run-stream` 工程文件输出；各接口以 SSE 推送实际工具输入/输出。规范 RAG 直接读取项目 `Knowledge/07_机器可读规范库/standards.db`，无需另起 8765 HTTP 服务。
+FastAPI 网关默认从仓库内 `backend/tool_sources/` 加载结构工具；只有显式设置 `STEEL_TOOL_SOURCE` 时才切换到指定目录。`/health` 报告总体连通性，`/tools` 逐项报告依赖是否满足，`/invoke/{tool_name}` 执行单个工具。网页将设计拆为三条 LCEL 工作流：`/workflow/information-selection/run-stream` 信息获取与截面初选、`/workflow/section-iteration/run-stream` 截面迭代与优化、`/workflow/engineering-outputs/run-stream` 工程文件输出；各接口以 SSE 推送实际工具输入/输出。规范 RAG 直接读取项目 `Knowledge/07_机器可读规范库/standards.db`，无需另起 8765 HTTP 服务。
 
 ## 启动
 
@@ -9,11 +9,54 @@ FastAPI 网关会从 `STEEL_TOOL_SOURCE` 加载 Downloads 中的结构工具。`
 ```powershell
 conda activate torch
 python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend\requirements.txt"
-$env:STEEL_TOOL_SOURCE = 'C:\Users\Administrator\Downloads'
 python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend' --host 127.0.0.1 --port 8000
 ```
 
 服务启动后先在浏览器打开 `http://127.0.0.1:8000/health`，再回到 SteelMind 点“检查工具服务”。本机服务绑定 loopback，避免默认暴露到局域网。
+
+## 代码与工具索引
+
+| 文件 | 职责 / 提供的工具 |
+|---|---|
+| `app.py` | FastAPI 网关、工具动态加载、单工具调用/API、SSE 工作流路由、健康检查、产物下载及本地/S3 存储适配 |
+| `workflow.py` | LangChain LCEL 工作流编排：信息获取与截面初选、截面迭代优化、工程文件输出；记录步骤输入/输出 |
+| `knowledge_tools.py` | SteelMind 对本地规范 RAG 的适配：`search_steel_standards`、`query_region_params` |
+| `tool_sources/structural_calc.py` | `validate_steel_frame_parameters`、`calculate_load_combination`、`check_steel_member`；另有旧兼容工具 `optimize_steel_truss_members` |
+| `tool_sources/opensees_analysis.py` | `opensees_frame_verify`：参数化二维钢框架 OpenSeesPy 建模与静力分析；为成果导出返回实体节点、位移、支座反力、杆件节点关系和局部端力 |
+| `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：框架三维交互展示、构件验算着色和截面图形数据 |
+| `tool_sources/generate_design_files.py` | `generate_calculation_book`、`generate_design_outputs`：生成计算书及 Excel/Word/DXF 文件 |
+| `tool_sources/engineering_drawings.py` | `generate_construction_drawing_package`：把工作流2最终报告映射为严格的 DesignBundle、预检数据、生成成果包并转成网关下载链接 |
+| `engineering_export/src/steelmind_export/` | 新接入的成果生成组件：DesignBundle 契约、输入/覆盖校核、计算书与结果表、DXF/PDF 图纸、成果清单/哈希/ZIP；随包保留 README、测试、示例和中文字体授权 |
+| `tool_sources/s3_storage.py` | Coze/S3 对象存储后端；未配置 S3 时网关改用 `app.py` 的本地存储适配 |
+| `tool_sources/legacy/region_params.py` | 历史版独立地区 JSON 查询实现，当前未注册到网关；当前地区检索由 `knowledge_tools.py` 调本地规范 RAG |
+| `tool_sources/legacy/region_params_kb.json` | 上述历史工具的空知识库样例数据，当前未被工作流读取 |
+| `requirements.txt` | Python 网关、文档生成、OpenSeesPy、LangChain 等依赖 |
+| `../dist/index.html` | SteelMind 网页前端：模型/API配置、对话、可编辑参数表、工具及工作流输入输出和 OpenSees 可视化入口 |
+| `../tools/build_model_template.mjs` | 生成 `dist/steel_modeling_parameters_template.xlsx` 的 Excel 模板脚本 |
+| `../Knowledge/08_规范RAG工具/rag_engine.py` | 本地规范检索核心：检索条文、精确读取条款、材料/型钢参数查询、读取索引 |
+| `../Knowledge/08_规范RAG工具/langchain_tools.py` | 将 RAG 检索接口封装成 LangChain 工具 |
+| `../Knowledge/08_规范RAG工具/build_index.py`、`build_file_index.py`、`build_corpus.py`、`merge_corpus.py`、`verify_corpus.py` | 构建规范语料、文件索引、合并与校验；属于离线知识库维护工具，不是每次请求都运行 |
+| `../Knowledge/08_规范RAG工具/fastapi_router.py`、`http_server.py`、`mcp_server.py` | RAG 的可选 FastAPI 路由、独立 HTTP 和 MCP 入口；SteelMind 当前通过 `knowledge_tools.py` 直接调用检索引擎，不需启动独立 RAG 服务 |
+| `../Knowledge/07_机器可读规范库/` | RAG 使用的规范 Markdown、结构化记录和 `standards.db` 索引数据；目录被 Git 忽略，需在本地保留/配置知识库数据 |
+
+历史工具原件仍保留在 `C:\Users\Administrator\Downloads`，运行服务默认不再依赖该目录。若需临时加载另一份工具源码，可设置 `STEEL_TOOL_SOURCE` 为包含工具 `.py` 文件的目录。`Knowledge/` 下的规范及 RAG 源码此前已位于本项目目录，但按本地知识资产策略在 `.gitignore` 中忽略；复制项目到其他电脑时应单独迁移这些目录和索引数据。
+
+## 工作流2 → DesignBundle → 工程成果包
+
+工作流2收敛后，`opensees_frame_verify` 会提供图纸契约需要的实体节点坐标/位移、支座与反力、每根梁柱的实体端点/截面/两端局部内力；验算器提供每个构件的利用率数值与结论。`engineering_drawings.py` 只从这些实际返回值构造模型、荷载、分析和检查记录，并调用 `validate_bundle` 预检。输入引用、数值或必需结果缺失时，工作流3拒绝生成，不使用默认值补成工程数据。
+
+工具 `generate_construction_drawing_package` 的工作流输入为 `{"final_report": <工作流2最终报告>, "options": {"include_pdf": true, "include_dwg": false, "office_timeout_s": 120}}`。内部转换为 DesignBundle 1.0，并由成果组件返回生成状态、数据校核状态、上游验算汇总、草稿标识/原因、警告错误及每个文件的名称、类型、字节数、SHA-256 和网关可下载 URL。可下载内容包括计算书 DOCX、结果 XLSX、二维 DXF/PDF 方案图、审计 JSON 和 ZIP 成果包；缺失 LibreOffice 时计算书 PDF 会明确列为失败，其他已完成产物仍保留，整体状态为 `partial`。
+
+现阶段工作流2只执行单一静力荷载模式，不是规范 ULS/SLS 多工况组合；传入 DesignBundle 的状态明确为 `ANALYSIS`，导出校核因此标为 `INCOMPLETE`/草稿，不会伪装成规范组合。现有构件验算没有结构化返回规范条文号，条文字段保留缺项提示。图纸按该生成器定义属于二维框架方案图，不含节点连接、螺栓/焊缝、基础和面外构造，**不是正式施工图**；须由结构专业人员补齐组合、规范条款和节点设计并审查。
+
+安装新版依赖：
+
+```powershell
+conda activate torch
+python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend\requirements.txt"
+```
+
+本机缺少 LibreOffice 时，计算书 DOCX、结果表 XLSX 和 DXF/PDF 图纸仍可生成；只有计算书 PDF 转换会返回明确错误。需要该 PDF 时另行安装 LibreOffice Writer，并确保服务能找到 `soffice.exe`。
 
 ## 工具要求与输出
 

@@ -1,0 +1,10 @@
+services:
+  exports:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - steelmind-runs:/data/runs
+    restart: unless-stopped
+volumes:
+  steelmind-runs:

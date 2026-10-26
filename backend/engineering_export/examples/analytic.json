@@ -1,0 +1,529 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "解析基准 · 6m 简支梁",
+    "phase": "方案设计",
+    "designer": "",
+    "institution": "",
+    "student_id": "",
+    "date": "",
+    "assumptions": [
+      "Euler–Bernoulli 梁；小变形；恒定 EI；均布重力荷载 10 kN/m",
+      "理想 H300×200×8×12，忽略圆角；未计自重或剪切变形"
+    ],
+    "limitations": [
+      "解析基准仅检验单位及符号约定；示意验算不代表完整规范校核"
+    ]
+  },
+  "model": {
+    "nodes": [
+      {
+        "id": "N1",
+        "x_m": 0.0,
+        "y_m": 0.0
+      },
+      {
+        "id": "N2",
+        "x_m": 6.0,
+        "y_m": 0.0
+      }
+    ],
+    "members": [
+      {
+        "id": "B1",
+        "node_i": "N1",
+        "node_j": "N2",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": true,
+        "release_j": true
+      }
+    ],
+    "materials": [
+      {
+        "id": "Q235",
+        "name": "Q235 teaching material",
+        "E_MPa": 206000.0,
+        "fy_MPa": 235.0,
+        "source": "Illustrative material input; verify project specification"
+      }
+    ],
+    "sections": [
+      {
+        "id": "H300",
+        "name": "H300×200×8×12",
+        "shape": "H",
+        "h_mm": 300.0,
+        "b_mm": 200.0,
+        "tw_mm": 8.0,
+        "tf_mm": 12.0,
+        "A_mm2": 7008.0,
+        "Ix_mm4": 113606784.0,
+        "Iy_mm4": 16011776.0,
+        "Wx_mm3": 757378.56,
+        "Wy_mm3": 160117.76,
+        "property_basis": "idealized",
+        "source": "Idealized rectangular decomposition, no root radii"
+      }
+    ],
+    "supports": [
+      {
+        "node_id": "N1",
+        "ux": true,
+        "uy": true,
+        "rz": false
+      },
+      {
+        "node_id": "N2",
+        "ux": false,
+        "uy": true,
+        "rz": false
+      }
+    ]
+  },
+  "load_cases": [
+    {
+      "id": "Q",
+      "name": "均布竖向荷载",
+      "kind": "variable",
+      "source": "Analytic benchmark q=10 kN/m",
+      "loads": [
+        {
+          "kind": "uniform_member",
+          "target_id": "B1",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        }
+      ]
+    }
+  ],
+  "combinations": [
+    {
+      "id": "ULS1",
+      "name": "基准承载组合",
+      "factors": {
+        "Q": 1.0
+      },
+      "limit_state": "ULS",
+      "source": "Benchmark factor 1.0; not normative combination"
+    },
+    {
+      "id": "SLS1",
+      "name": "基准使用组合",
+      "factors": {
+        "Q": 1.0
+      },
+      "limit_state": "SLS",
+      "source": "Benchmark factor 1.0; not normative combination"
+    }
+  ],
+  "analysis": {
+    "node_displacements": [
+      {
+        "node_id": "N1",
+        "combination_id": "ULS1",
+        "ux_mm": 0.0,
+        "uy_mm": 0.0,
+        "rz_rad": -0.0038456612228675987
+      },
+      {
+        "node_id": "N2",
+        "combination_id": "ULS1",
+        "ux_mm": 0.0,
+        "uy_mm": 0.0,
+        "rz_rad": 0.0038456612228675987
+      },
+      {
+        "node_id": "N1",
+        "combination_id": "SLS1",
+        "ux_mm": 0.0,
+        "uy_mm": 0.0,
+        "rz_rad": -0.0038456612228675987
+      },
+      {
+        "node_id": "N2",
+        "combination_id": "SLS1",
+        "ux_mm": 0.0,
+        "uy_mm": 0.0,
+        "rz_rad": 0.0038456612228675987
+      }
+    ],
+    "reactions": [
+      {
+        "node_id": "N1",
+        "combination_id": "ULS1",
+        "fx_kN": 0.0,
+        "fy_kN": 30.0,
+        "mz_kNm": 0.0
+      },
+      {
+        "node_id": "N2",
+        "combination_id": "ULS1",
+        "fx_kN": 0.0,
+        "fy_kN": 30.0,
+        "mz_kNm": 0.0
+      },
+      {
+        "node_id": "N1",
+        "combination_id": "SLS1",
+        "fx_kN": 0.0,
+        "fy_kN": 30.0,
+        "mz_kNm": 0.0
+      },
+      {
+        "node_id": "N2",
+        "combination_id": "SLS1",
+        "fx_kN": 0.0,
+        "fy_kN": 30.0,
+        "mz_kNm": 0.0
+      }
+    ],
+    "member_end_forces": [
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 30.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 30.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 30.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 30.0,
+        "Mj_kNm": 0.0
+      }
+    ],
+    "member_samples": [
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 30.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 0.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 25.0,
+        "M_kNm": 13.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 20.0,
+        "M_kNm": 25.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.0,
+        "M_kNm": 33.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 10.0,
+        "M_kNm": 40.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 2.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 5.0,
+        "M_kNm": 43.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 45.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 3.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -5.0,
+        "M_kNm": 43.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -10.0,
+        "M_kNm": 40.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.0,
+        "M_kNm": 33.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -20.0,
+        "M_kNm": 25.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 5.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -25.0,
+        "M_kNm": 13.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -30.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 30.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 0.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 25.0,
+        "M_kNm": 13.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 20.0,
+        "M_kNm": 25.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.0,
+        "M_kNm": 33.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 10.0,
+        "M_kNm": 40.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 2.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 5.0,
+        "M_kNm": 43.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 45.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 3.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -5.0,
+        "M_kNm": 43.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -10.0,
+        "M_kNm": 40.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.0,
+        "M_kNm": 33.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -20.0,
+        "M_kNm": 25.0
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 5.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -25.0,
+        "M_kNm": 13.75
+      },
+      {
+        "member_id": "B1",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -30.0,
+        "M_kNm": 0.0
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "C_STRENGTH",
+      "target_id": "B1",
+      "combination_id": "ULS1",
+      "item": "strength",
+      "status": "PASS",
+      "demand": 59.41546589330439,
+      "limit": 235.0,
+      "comparator": "<=",
+      "unit": "MPa",
+      "utilization": 0.2528317697587421,
+      "formula_text": "sigma = M_max / Wx <= fy (illustrative only)",
+      "substitution": "45e6 / 757378.56 = 59.415466 MPa <= 235 MPa",
+      "source": "Elementary elastic stress example, not normative design",
+      "clause": "Illustrative benchmark",
+      "trace_ids": [
+        "T_STRESS"
+      ],
+      "na_reason": ""
+    },
+    {
+      "id": "C_DEFLECTION",
+      "target_id": "B1",
+      "combination_id": "SLS1",
+      "item": "deflection",
+      "status": "PASS",
+      "demand": 7.210614792876748,
+      "limit": 20.0,
+      "comparator": "abs<=",
+      "unit": "mm",
+      "utilization": 0.3605307396438374,
+      "formula_text": "delta_max = 5 q L^4 / (384 E Ix); illustrative limit L/300",
+      "substitution": "5*10*6000^4/(384*206000*113606784) = 7.210615 mm <= 20 mm",
+      "source": "Closed-form beam theory; limit illustrative only",
+      "clause": "Illustrative benchmark",
+      "trace_ids": [
+        "T_DEFLECTION"
+      ],
+      "na_reason": ""
+    }
+  ],
+  "traces": [
+    {
+      "id": "T_STRESS",
+      "name": "最大弹性弯曲正应力",
+      "formula_text": "sigma = Mmax / Wx",
+      "inputs": {
+        "Mmax_Nmm": 45000000.0,
+        "Wx_mm3": 757378.56
+      },
+      "intermediate": [
+        "Mmax = q L² / 8 = 45 kN*m"
+      ],
+      "result": 59.41546589330439,
+      "unit": "MPa",
+      "source": "Closed-form simple beam theory",
+      "result_path": "/checks/0/demand"
+    },
+    {
+      "id": "T_DEFLECTION",
+      "name": "跨中相对最大挠度",
+      "formula_text": "delta = 5 q L^4 / (384 E Ix)",
+      "inputs": {
+        "q_N_mm": 10.0,
+        "L_mm": 6000.0,
+        "E_MPa": 206000.0,
+        "Ix_mm4": 113606784.0
+      },
+      "intermediate": [
+        "10 kN/m = 10 N/mm",
+        "6 m = 6000 mm",
+        "Downward signed uy = -delta"
+      ],
+      "result": 7.210614792876748,
+      "unit": "mm",
+      "source": "Closed-form Euler–Bernoulli simple beam theory",
+      "result_path": "/checks/1/demand"
+    }
+  ],
+  "provenance": {
+    "data_kind": "analytic_benchmark",
+    "tool_versions": {
+      "builder": "steelmind-export-1.0"
+    },
+    "source": "Closed-form elementary beam theory",
+    "run_id": "analytic-v1"
+  }
+}

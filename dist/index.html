@@ -331,4 +331,27 @@ $('#checkToolService').onclick=async()=>{const base=$('#toolBase').value.trim().
 $('#runTool').onclick=async()=>{let payload;const name=$('#toolName').value;try{payload=readToolParameterTable(name)}catch(e){$('#toolResult').textContent='参数表检查失败：'+e.message;return}const base=$('#toolBase').value.trim().replace(/\/$/,'');if(['search_steel_standards','query_region_params'].includes(name)){payload.knowledge_enabled=$('#knowledgeEnabled').checked;payload.standard_ids=selectedKnowledgeIds();payload.source_dirs=selectedKnowledgeDirs()}$('#toolArtifactLink').style.display='none';$('#toolCadButton').style.display='none';$('#runTool').disabled=true;$('#toolResult').textContent=`正在调用 ${name}…`;try{const r=await fetch(`${base}/invoke/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payload})});const data=await r.json();if(!r.ok)throw new Error(data.detail||`HTTP ${r.status}`);if(!data.ok)throw new Error(data.error||'网关返回失败');if(data.result===null||data.result===undefined||data.result==='')throw new Error('工具已执行但返回空结果，请检查该工具的输出或依赖配置');$('#toolResult').textContent=typeof data.result==='string'?data.result:JSON.stringify(data.result,null,2);if(name==='generate_design_outputs'){const dxfUrl=dxfUrlFromText(typeof data.result==='string'?data.result:JSON.stringify(data.result));if(dxfUrl){$('#cadUrl').value=dxfUrl;$('#toolCadButton').style.display='inline-block'}}if(name==='opensees_frame_visualize'&&await showOpenSeesModel(data.result)){viewerDraft=structuredClone(payload);renderParameterTable('#viewerParams',viewerDraft);$('#toolArtifactLink').href=$('#viewerOpenLink').href;$('#toolArtifactLink').style.display='inline-block'}if(['search_steel_standards','query_region_params'].includes(name)){const parsed=typeof data.result==='string'?JSON.parse(data.result):data.result;renderKnowledgeHits(parsed.results)}add('assistant',`工具 ${name} 已完成，结果已显示在工具面板。`)}catch(e){$('#toolResult').textContent='调用失败：'+gatewayError(e);if(name==='opensees_frame_visualize')$('#viewerStatus').textContent='生成/载入失败：'+gatewayError(e)}finally{$('#runTool').disabled=false}};
 if(sessionStorage.getItem('deepseekBaseUrl'))$('#baseUrl').value=sessionStorage.getItem('deepseekBaseUrl');if(sessionStorage.getItem('deepseekModel'))$('#model').value=sessionStorage.getItem('deepseekModel');if(sessionStorage.getItem('toolBase'))$('#toolBase').value=sessionStorage.getItem('toolBase');$('#saveConfig').addEventListener('click',()=>sessionStorage.setItem('toolBase',$('#toolBase').value));if(!restoreConversation())welcome();
 </script>
+<script>
+workflowToolMeta.generate_construction_drawing_package={label:'DesignBundle工程成果包生成（计算书/结果表/DXF方案图）',stage:'outputs'};
+const outputsHeading=[...document.querySelectorAll('h3')].find(node=>node.textContent.includes('工作流 3 · 工程文件输出'));
+if(outputsHeading?.nextElementSibling)outputsHeading.nextElementSibling.textContent='接收工作流2最终分析和逐构件验算，先校核 DesignBundle 输入契约，再生成计算书、结果表、DXF二维框架方案图及审计成果包。契约缺项会阻止导出；成果如标注草稿/不完整，必须保留该状态。图纸不等同正式施工图。';
+const runIterationButton=$('#runSectionIteration');
+const runIterationHandler=runIterationButton.onclick;
+runIterationButton.onclick=async function(event){
+  window.lastIterationReport=null;$('#runEngineeringOutputs').disabled=true;
+  const returned=await runIterationHandler.call(this,event);
+  const report=window.lastIterationReport,preflight=report?.construction_drawing_preflight;
+  const ready=!!(report?.converged&&preflight?.valid===true);
+  $('#runEngineeringOutputs').disabled=!ready;
+  $('#outputsStatus').textContent=ready?'工作流2已收敛，DesignBundle预检通过，可生成方案级成果':report?.converged?'工作流2已收敛，但图纸输入预检未通过':'等待工作流2收敛';
+  if(report?.converged&&!ready){const issues=[...(preflight?.draft_reasons||[]),...(preflight?.errors||[]).map(item=>item.message||String(item))];$('#outputsResult').textContent='暂不能运行工作流3：\n'+(issues.join('\n')||'请检查工作流2报告中的 construction_drawing_preflight。')}
+  return returned;
+};
+const runOutputsButton=$('#runEngineeringOutputs');
+const runOutputsHandler=runOutputsButton.onclick;
+runOutputsButton.onclick=async function(event){
+  if(window.lastIterationReport?.construction_drawing_preflight?.valid!==true){$('#outputsStatus').textContent='DesignBundle输入预检未通过，暂不生成文件';return}
+  return runOutputsHandler.call(this,event);
+};
+</script>
 </body></html>

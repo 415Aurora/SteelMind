@@ -612,8 +612,28 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
     report = {"project_name": req.get("project_name", "钢框架截面迭代与优化"), "status": status,
               "converged": converged_checked, "iterations": history, "final_sections": final_sections,
               "member_checks": final_checks, "analysis": final_analysis, "request": req,
+              "run_id": uuid4().hex,
               "visualization": vis_result, "artifacts": artifacts, "errors": state.get("errors", []),
               "engineering_notice": "本功能为二维线弹性单静力工况的方案级迭代原型。轴力采用绝对值包络，弱轴弯矩取零，计算长度暂按几何长度；当前 GB 50017 验算器仍含筛查性简化。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
+    if converged_checked:
+        try:
+            from engineering_drawings import inspect_drawing_bundle
+            preflight = inspect_drawing_bundle(report)
+            if preflight.get("valid") and preflight.get("bundle"):
+                report["construction_drawing_bundle"] = preflight["bundle"]
+            report["construction_drawing_preflight"] = {key: value for key, value in preflight.items() if key != "bundle"}
+        except Exception as exc:
+            report["construction_drawing_preflight"] = {
+                "valid": False, "data_validation_status": "invalid", "upstream_check_summary": "INCOMPLETE",
+                "draft": True, "draft_reasons": [f"图纸输入预检异常：{type(exc).__name__}: {exc}"],
+                "errors": [{"code": "preflight_error", "message": str(exc), "path": "/"}], "warnings": [],
+            }
+    else:
+        report["construction_drawing_preflight"] = {
+            "valid": False, "data_validation_status": "invalid", "upstream_check_summary": "INCOMPLETE",
+            "draft": True, "draft_reasons": ["工作流2未收敛，不能提交给图纸成果生成工具"],
+            "errors": [], "warnings": [],
+        }
     return {"status": status, "report": report}
 
 
@@ -716,30 +736,21 @@ def _engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
     checks = report.get("member_checks") or []
     if not checks or any(not item.get("passed") for item in checks):
         return {"ok": False, "status": "checks_failed", "errors": ["最终报告缺少构件验算记录或存在未通过构件"]}
-    req = report.get("request") or payload.get("request") or {}
-    analysis = report.get("analysis") or {}
-    geometry = (analysis.get("parameters") or {}).get("geometry") or req.get("geometry") or {}
-    project_name = report.get("project_name") or req.get("project_name") or "钢框架设计方案"
-    check_text = "\n\n".join(f"{c.get('member_id')} | {c.get('section')} | 通过\n{c.get('result_text', '')}" for c in checks)
-    calc = _tool_text("generate_calculation_book", {
-        "project_name": project_name,
-        "chapters": [
-            {"title": "模型输入与假定", "body": json.dumps({"geometry": req.get("geometry"), "loads": req.get("loads"), "material": req.get("material"), "final_sections": report.get("final_sections")}, ensure_ascii=False, indent=2)},
-            {"title": "OpenSees 最终轮分析", "body": json.dumps(analysis.get("results", {}), ensure_ascii=False, indent=2)},
-            {"title": "截面迭代历史", "body": json.dumps(report.get("iterations", []), ensure_ascii=False, indent=2)},
-            {"title": "逐构件验算", "body": check_text},
-        ],
-        "conclusion": "截面迭代工作流的当前模型所提交验算项均通过。该文件属于方案级输出，须由专业工程师复核。",
-    })
-    items = [{"name": c.get("member_id"), "symbol": c.get("member_type"), "value": c.get("section"), "note": "迭代分析模型验算通过"} for c in checks]
-    design = _tool_text("generate_design_outputs", {
-        "project_name": project_name, "bays": geometry.get("bays", 1),
-        "bay_m": (geometry.get("bay_widths_m") or [geometry.get("bay_m", 6)])[0],
-        "height_m": sum(geometry.get("story_heights_m") or [geometry.get("height_m", 3)]),
-        "sections": [{"title": "最终逐构件截面与验算", "items": items}],
-        "conclusion": "基于已收敛的截面迭代结果生成；仅为方案级输出，不作为施工图或审查结论。",
-    })
-    return {"ok": True, "status": "completed", "artifacts": {"calculation_book": calc, "design_outputs": design}}
+    preflight = report.get("construction_drawing_preflight") or {}
+    if preflight.get("valid") is not True or not report.get("construction_drawing_bundle"):
+        return {"ok": False, "status": "export_input_invalid",
+                "errors": ["工作流2报告没有通过 DesignBundle 图纸输入预检；请查看 construction_drawing_preflight 后补充或重新分析"],
+                "preflight": preflight}
+    generated = _tool_text("generate_construction_drawing_package", {"final_report": report})
+    try:
+        parsed = json.loads(generated)
+    except json.JSONDecodeError:
+        return {"ok": False, "status": "export_tool_invalid_response", "errors": ["图纸成果工具返回内容无法解析"], "tool_output": generated}
+    if not parsed.get("ok"):
+        return {"ok": False, "status": parsed.get("status", "generation_failed"),
+                "errors": [parsed.get("error", "图纸成果生成失败")], "preflight": parsed.get("preflight")}
+    return {"ok": True, "status": parsed.get("generation_status", "completed"),
+            "preflight": parsed.get("preflight"), "artifacts": {"engineering_package": generated}}
 
 
 ENGINEERING_OUTPUT_WORKFLOW = RunnableLambda(_engineering_outputs)

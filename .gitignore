@@ -5,5 +5,6 @@ dist/*preview*.png
 dist/*.inspect.ndjson
 *.tar.gz
 backend/__pycache__/
+**/__pycache__/
 Knowledge/
 智能建造施工解决方案.zip

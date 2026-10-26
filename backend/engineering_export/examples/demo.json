@@ -1,0 +1,3537 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "SteelMind · 三层两跨钢框架演示",
+    "phase": "方案设计",
+    "designer": "演示作者",
+    "institution": "教学演示",
+    "student_id": "",
+    "date": "",
+    "assumptions": [
+      "二维框架；刚接梁柱；柱脚固结",
+      "跨度 6m + 8m；层高 3.6m；统一理想 H 截面"
+    ],
+    "limitations": [
+      "DEMO 数据用于展示，不可用于工程设计或提交",
+      "结果为人工编排，未进行独立求解或平衡复核",
+      "部分验算缺失；一个不通过验算故意保留以展示真实状态"
+    ]
+  },
+  "model": {
+    "nodes": [
+      {
+        "id": "N00",
+        "x_m": 0.0,
+        "y_m": 0.0
+      },
+      {
+        "id": "N01",
+        "x_m": 6.0,
+        "y_m": 0.0
+      },
+      {
+        "id": "N02",
+        "x_m": 14.0,
+        "y_m": 0.0
+      },
+      {
+        "id": "N10",
+        "x_m": 0.0,
+        "y_m": 3.6
+      },
+      {
+        "id": "N11",
+        "x_m": 6.0,
+        "y_m": 3.6
+      },
+      {
+        "id": "N12",
+        "x_m": 14.0,
+        "y_m": 3.6
+      },
+      {
+        "id": "N20",
+        "x_m": 0.0,
+        "y_m": 7.2
+      },
+      {
+        "id": "N21",
+        "x_m": 6.0,
+        "y_m": 7.2
+      },
+      {
+        "id": "N22",
+        "x_m": 14.0,
+        "y_m": 7.2
+      },
+      {
+        "id": "N30",
+        "x_m": 0.0,
+        "y_m": 10.8
+      },
+      {
+        "id": "N31",
+        "x_m": 6.0,
+        "y_m": 10.8
+      },
+      {
+        "id": "N32",
+        "x_m": 14.0,
+        "y_m": 10.8
+      }
+    ],
+    "members": [
+      {
+        "id": "C10",
+        "node_i": "N00",
+        "node_j": "N10",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C11",
+        "node_i": "N01",
+        "node_j": "N11",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C12",
+        "node_i": "N02",
+        "node_j": "N12",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "B10",
+        "node_i": "N10",
+        "node_j": "N11",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "B11",
+        "node_i": "N11",
+        "node_j": "N12",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C20",
+        "node_i": "N10",
+        "node_j": "N20",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C21",
+        "node_i": "N11",
+        "node_j": "N21",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C22",
+        "node_i": "N12",
+        "node_j": "N22",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "B20",
+        "node_i": "N20",
+        "node_j": "N21",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "B21",
+        "node_i": "N21",
+        "node_j": "N22",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C30",
+        "node_i": "N20",
+        "node_j": "N30",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C31",
+        "node_i": "N21",
+        "node_j": "N31",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "C32",
+        "node_i": "N22",
+        "node_j": "N32",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "column",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "B30",
+        "node_i": "N30",
+        "node_j": "N31",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": false,
+        "release_j": false
+      },
+      {
+        "id": "B31",
+        "node_i": "N31",
+        "node_j": "N32",
+        "section_id": "H300",
+        "material_id": "Q235",
+        "kind": "beam",
+        "release_i": false,
+        "release_j": false
+      }
+    ],
+    "materials": [
+      {
+        "id": "Q235",
+        "name": "Q235 teaching material",
+        "E_MPa": 206000.0,
+        "fy_MPa": 235.0,
+        "source": "Illustrative material input; verify project specification"
+      }
+    ],
+    "sections": [
+      {
+        "id": "H300",
+        "name": "H300×200×8×12",
+        "shape": "H",
+        "h_mm": 300.0,
+        "b_mm": 200.0,
+        "tw_mm": 8.0,
+        "tf_mm": 12.0,
+        "A_mm2": 7008.0,
+        "Ix_mm4": 113606784.0,
+        "Iy_mm4": 16011776.0,
+        "Wx_mm3": 757378.56,
+        "Wy_mm3": 160117.76,
+        "property_basis": "idealized",
+        "source": "Idealized rectangular decomposition, no root radii"
+      }
+    ],
+    "supports": [
+      {
+        "node_id": "N00",
+        "ux": true,
+        "uy": true,
+        "rz": true
+      },
+      {
+        "node_id": "N01",
+        "ux": true,
+        "uy": true,
+        "rz": true
+      },
+      {
+        "node_id": "N02",
+        "ux": true,
+        "uy": true,
+        "rz": true
+      }
+    ]
+  },
+  "load_cases": [
+    {
+      "id": "G",
+      "name": "DEMO 恒载",
+      "kind": "permanent",
+      "source": "DEMO teaching input",
+      "loads": [
+        {
+          "kind": "uniform_member",
+          "target_id": "B10",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B11",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B20",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B21",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B30",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B31",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -10.0
+        }
+      ]
+    },
+    {
+      "id": "Q",
+      "name": "DEMO 活载",
+      "kind": "variable",
+      "source": "DEMO teaching input",
+      "loads": [
+        {
+          "kind": "uniform_member",
+          "target_id": "B10",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -5.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B11",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -5.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B20",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -5.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B21",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -5.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B30",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -5.0
+        },
+        {
+          "kind": "uniform_member",
+          "target_id": "B31",
+          "qx_kN_m": 0.0,
+          "qy_kN_m": -5.0
+        }
+      ]
+    }
+  ],
+  "combinations": [
+    {
+      "id": "ULS1",
+      "name": "DEMO 承载组合",
+      "factors": {
+        "G": 1.3,
+        "Q": 1.5
+      },
+      "limit_state": "ULS",
+      "source": "DEMO illustrative factors; not normative"
+    },
+    {
+      "id": "SLS1",
+      "name": "DEMO 使用组合",
+      "factors": {
+        "G": 1.0,
+        "Q": 1.0
+      },
+      "limit_state": "SLS",
+      "source": "DEMO illustrative factors; not normative"
+    }
+  ],
+  "analysis": {
+    "node_displacements": [
+      {
+        "node_id": "N00",
+        "combination_id": "ULS1",
+        "ux_mm": 0.0,
+        "uy_mm": -0.0,
+        "rz_rad": 0.0
+      },
+      {
+        "node_id": "N01",
+        "combination_id": "ULS1",
+        "ux_mm": 0.0,
+        "uy_mm": -0.0,
+        "rz_rad": 0.0
+      },
+      {
+        "node_id": "N02",
+        "combination_id": "ULS1",
+        "ux_mm": 0.0,
+        "uy_mm": -0.0,
+        "rz_rad": 0.0
+      },
+      {
+        "node_id": "N10",
+        "combination_id": "ULS1",
+        "ux_mm": 3.5,
+        "uy_mm": -2.0999999999999996,
+        "rz_rad": 0.00028
+      },
+      {
+        "node_id": "N11",
+        "combination_id": "ULS1",
+        "ux_mm": 3.5,
+        "uy_mm": -2.0999999999999996,
+        "rz_rad": 0.00028
+      },
+      {
+        "node_id": "N12",
+        "combination_id": "ULS1",
+        "ux_mm": 3.5,
+        "uy_mm": -2.0999999999999996,
+        "rz_rad": 0.00028
+      },
+      {
+        "node_id": "N20",
+        "combination_id": "ULS1",
+        "ux_mm": 7.0,
+        "uy_mm": -4.199999999999999,
+        "rz_rad": 0.00056
+      },
+      {
+        "node_id": "N21",
+        "combination_id": "ULS1",
+        "ux_mm": 7.0,
+        "uy_mm": -4.199999999999999,
+        "rz_rad": 0.00056
+      },
+      {
+        "node_id": "N22",
+        "combination_id": "ULS1",
+        "ux_mm": 7.0,
+        "uy_mm": -4.199999999999999,
+        "rz_rad": 0.00056
+      },
+      {
+        "node_id": "N30",
+        "combination_id": "ULS1",
+        "ux_mm": 10.499999999999998,
+        "uy_mm": -6.299999999999999,
+        "rz_rad": 0.0008399999999999999
+      },
+      {
+        "node_id": "N31",
+        "combination_id": "ULS1",
+        "ux_mm": 10.499999999999998,
+        "uy_mm": -6.299999999999999,
+        "rz_rad": 0.0008399999999999999
+      },
+      {
+        "node_id": "N32",
+        "combination_id": "ULS1",
+        "ux_mm": 10.499999999999998,
+        "uy_mm": -6.299999999999999,
+        "rz_rad": 0.0008399999999999999
+      },
+      {
+        "node_id": "N00",
+        "combination_id": "SLS1",
+        "ux_mm": 0.0,
+        "uy_mm": -0.0,
+        "rz_rad": 0.0
+      },
+      {
+        "node_id": "N01",
+        "combination_id": "SLS1",
+        "ux_mm": 0.0,
+        "uy_mm": -0.0,
+        "rz_rad": 0.0
+      },
+      {
+        "node_id": "N02",
+        "combination_id": "SLS1",
+        "ux_mm": 0.0,
+        "uy_mm": -0.0,
+        "rz_rad": 0.0
+      },
+      {
+        "node_id": "N10",
+        "combination_id": "SLS1",
+        "ux_mm": 2.5,
+        "uy_mm": -1.5,
+        "rz_rad": 0.0002
+      },
+      {
+        "node_id": "N11",
+        "combination_id": "SLS1",
+        "ux_mm": 2.5,
+        "uy_mm": -1.5,
+        "rz_rad": 0.0002
+      },
+      {
+        "node_id": "N12",
+        "combination_id": "SLS1",
+        "ux_mm": 2.5,
+        "uy_mm": -1.5,
+        "rz_rad": 0.0002
+      },
+      {
+        "node_id": "N20",
+        "combination_id": "SLS1",
+        "ux_mm": 5.0,
+        "uy_mm": -3.0,
+        "rz_rad": 0.0004
+      },
+      {
+        "node_id": "N21",
+        "combination_id": "SLS1",
+        "ux_mm": 5.0,
+        "uy_mm": -3.0,
+        "rz_rad": 0.0004
+      },
+      {
+        "node_id": "N22",
+        "combination_id": "SLS1",
+        "ux_mm": 5.0,
+        "uy_mm": -3.0,
+        "rz_rad": 0.0004
+      },
+      {
+        "node_id": "N30",
+        "combination_id": "SLS1",
+        "ux_mm": 7.5,
+        "uy_mm": -4.5,
+        "rz_rad": 0.0006000000000000001
+      },
+      {
+        "node_id": "N31",
+        "combination_id": "SLS1",
+        "ux_mm": 7.5,
+        "uy_mm": -4.5,
+        "rz_rad": 0.0006000000000000001
+      },
+      {
+        "node_id": "N32",
+        "combination_id": "SLS1",
+        "ux_mm": 7.5,
+        "uy_mm": -4.5,
+        "rz_rad": 0.0006000000000000001
+      }
+    ],
+    "reactions": [
+      {
+        "node_id": "N00",
+        "combination_id": "ULS1",
+        "fx_kN": -14.0,
+        "fy_kN": 251.99999999999997,
+        "mz_kNm": 21.0
+      },
+      {
+        "node_id": "N01",
+        "combination_id": "ULS1",
+        "fx_kN": -14.0,
+        "fy_kN": 308.0,
+        "mz_kNm": 21.0
+      },
+      {
+        "node_id": "N02",
+        "combination_id": "ULS1",
+        "fx_kN": -14.0,
+        "fy_kN": 364.0,
+        "mz_kNm": 21.0
+      },
+      {
+        "node_id": "N00",
+        "combination_id": "SLS1",
+        "fx_kN": -10.0,
+        "fy_kN": 180.0,
+        "mz_kNm": 15.0
+      },
+      {
+        "node_id": "N01",
+        "combination_id": "SLS1",
+        "fx_kN": -10.0,
+        "fy_kN": 220.0,
+        "mz_kNm": 15.0
+      },
+      {
+        "node_id": "N02",
+        "combination_id": "SLS1",
+        "fx_kN": -10.0,
+        "fy_kN": 260.0,
+        "mz_kNm": 15.0
+      }
+    ],
+    "member_end_forces": [
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 63.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 63.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 84.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 84.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 63.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 63.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 84.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 84.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "Ni_kN": 168.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -168.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 63.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 63.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 84.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 84.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 45.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 45.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 60.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 60.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 45.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 45.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 60.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 60.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "Ni_kN": 120.0,
+        "Vi_kN": 0.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": -120.0,
+        "Vj_kN": 0.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 45.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 45.0,
+        "Mj_kNm": 0.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "Ni_kN": 0.0,
+        "Vi_kN": 60.0,
+        "Mi_kNm": 0.0,
+        "Nj_kN": 0.0,
+        "Vj_kN": 60.0,
+        "Mj_kNm": 0.0
+      }
+    ],
+    "member_samples": [
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 63.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 0.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 47.25,
+        "M_kNm": 41.34375
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 31.5,
+        "M_kNm": 70.875
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.75,
+        "M_kNm": 88.59375
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 94.5
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 3.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.75,
+        "M_kNm": 88.59375
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -31.5,
+        "M_kNm": 70.875
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 5.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -47.25,
+        "M_kNm": 41.34375
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -63.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 84.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 63.0,
+        "M_kNm": 73.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 42.0,
+        "M_kNm": 126.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 21.0,
+        "M_kNm": 157.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 168.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -21.0,
+        "M_kNm": 157.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -42.0,
+        "M_kNm": 126.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 7.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -63.0,
+        "M_kNm": 73.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "ULS1",
+        "x_m": 8.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -84.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 63.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 0.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 47.25,
+        "M_kNm": 41.34375
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 31.5,
+        "M_kNm": 70.875
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.75,
+        "M_kNm": 88.59375
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 94.5
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 3.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.75,
+        "M_kNm": 88.59375
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -31.5,
+        "M_kNm": 70.875
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 5.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -47.25,
+        "M_kNm": 41.34375
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -63.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 84.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 63.0,
+        "M_kNm": 73.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 42.0,
+        "M_kNm": 126.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 21.0,
+        "M_kNm": 157.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 168.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -21.0,
+        "M_kNm": 157.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -42.0,
+        "M_kNm": 126.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 7.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -63.0,
+        "M_kNm": 73.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "ULS1",
+        "x_m": 8.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -84.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "ULS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -168.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 63.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 0.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 47.25,
+        "M_kNm": 41.34375
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 31.5,
+        "M_kNm": 70.875
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.75,
+        "M_kNm": 88.59375
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 94.5
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 3.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.75,
+        "M_kNm": 88.59375
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -31.5,
+        "M_kNm": 70.875
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 5.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -47.25,
+        "M_kNm": 41.34375
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -63.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 84.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 63.0,
+        "M_kNm": 73.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 42.0,
+        "M_kNm": 126.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 21.0,
+        "M_kNm": 157.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 168.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -21.0,
+        "M_kNm": 157.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -42.0,
+        "M_kNm": 126.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 7.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -63.0,
+        "M_kNm": 73.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "ULS1",
+        "x_m": 8.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -84.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C10",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C11",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C12",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 45.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 0.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 33.75,
+        "M_kNm": 29.53125
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 22.5,
+        "M_kNm": 50.625
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 11.25,
+        "M_kNm": 63.28125
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 67.5
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 3.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -11.25,
+        "M_kNm": 63.28125
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -22.5,
+        "M_kNm": 50.625
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 5.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -33.75,
+        "M_kNm": 29.53125
+      },
+      {
+        "member_id": "B10",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -45.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 60.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 45.0,
+        "M_kNm": 52.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 30.0,
+        "M_kNm": 90.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.0,
+        "M_kNm": 112.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 120.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.0,
+        "M_kNm": 112.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -30.0,
+        "M_kNm": 90.0
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 7.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -45.0,
+        "M_kNm": 52.5
+      },
+      {
+        "member_id": "B11",
+        "combination_id": "SLS1",
+        "x_m": 8.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -60.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C20",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C21",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C22",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 45.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 0.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 33.75,
+        "M_kNm": 29.53125
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 22.5,
+        "M_kNm": 50.625
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 11.25,
+        "M_kNm": 63.28125
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 67.5
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 3.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -11.25,
+        "M_kNm": 63.28125
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -22.5,
+        "M_kNm": 50.625
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 5.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -33.75,
+        "M_kNm": 29.53125
+      },
+      {
+        "member_id": "B20",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -45.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 60.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 45.0,
+        "M_kNm": 52.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 30.0,
+        "M_kNm": 90.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.0,
+        "M_kNm": 112.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 120.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.0,
+        "M_kNm": 112.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -30.0,
+        "M_kNm": 90.0
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 7.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -45.0,
+        "M_kNm": 52.5
+      },
+      {
+        "member_id": "B21",
+        "combination_id": "SLS1",
+        "x_m": 8.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -60.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C30",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C31",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 0.45,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 0.9,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 1.35,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 1.8,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": 0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 2.7,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 3.15,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "C32",
+        "combination_id": "SLS1",
+        "x_m": 3.6,
+        "side": "single",
+        "N_kN": -120.0,
+        "V_kN": -0.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 45.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 0.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 33.75,
+        "M_kNm": 29.53125
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 1.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 22.5,
+        "M_kNm": 50.625
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 2.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 11.25,
+        "M_kNm": 63.28125
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 67.5
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 3.75,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -11.25,
+        "M_kNm": 63.28125
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 4.5,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -22.5,
+        "M_kNm": 50.625
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 5.25,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -33.75,
+        "M_kNm": 29.53125
+      },
+      {
+        "member_id": "B30",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -45.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 0.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 60.0,
+        "M_kNm": 0.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 1.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 45.0,
+        "M_kNm": 52.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 2.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 30.0,
+        "M_kNm": 90.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 3.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 15.0,
+        "M_kNm": 112.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 4.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": 0.0,
+        "M_kNm": 120.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 5.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -15.0,
+        "M_kNm": 112.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 6.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -30.0,
+        "M_kNm": 90.0
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 7.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -45.0,
+        "M_kNm": 52.5
+      },
+      {
+        "member_id": "B31",
+        "combination_id": "SLS1",
+        "x_m": 8.0,
+        "side": "single",
+        "N_kN": 0.0,
+        "V_kN": -60.0,
+        "M_kNm": 0.0
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "C_DEMO_1",
+      "target_id": "B10",
+      "combination_id": "ULS1",
+      "item": "strength",
+      "status": "PASS",
+      "demand": 120.0,
+      "limit": 235.0,
+      "comparator": "<=",
+      "unit": "MPa",
+      "utilization": 0.5106382978723404,
+      "formula_text": "DEMO: utilization = demand / limit",
+      "substitution": "DEMO: 120 / 235 = 0.510638",
+      "source": "DEMO manually authored; not a normative design check",
+      "clause": "DEMO illustrative only",
+      "trace_ids": [
+        "T_DEMO_1"
+      ],
+      "na_reason": ""
+    },
+    {
+      "id": "C_DEMO_2",
+      "target_id": "B11",
+      "combination_id": "ULS1",
+      "item": "strength",
+      "status": "FAIL",
+      "demand": 270.0,
+      "limit": 235.0,
+      "comparator": "<=",
+      "unit": "MPa",
+      "utilization": 1.148936170212766,
+      "formula_text": "DEMO: utilization = demand / limit",
+      "substitution": "DEMO: 270 / 235 = 1.148936",
+      "source": "DEMO manually authored; not a normative design check",
+      "clause": "DEMO illustrative only",
+      "trace_ids": [
+        "T_DEMO_2"
+      ],
+      "na_reason": ""
+    },
+    {
+      "id": "C_DEMO_3",
+      "target_id": "B10",
+      "combination_id": "SLS1",
+      "item": "deflection",
+      "status": "PASS",
+      "demand": 12.0,
+      "limit": 20.0,
+      "comparator": "<=",
+      "unit": "mm",
+      "utilization": 0.6,
+      "formula_text": "DEMO: utilization = demand / limit",
+      "substitution": "DEMO: 12 / 20 = 0.600000",
+      "source": "DEMO manually authored; not a normative design check",
+      "clause": "DEMO illustrative only",
+      "trace_ids": [
+        "T_DEMO_3"
+      ],
+      "na_reason": ""
+    },
+    {
+      "id": "C_DEMO_4",
+      "target_id": "C10",
+      "combination_id": "ULS1",
+      "item": "stability",
+      "status": "PASS",
+      "demand": 0.72,
+      "limit": 1.0,
+      "comparator": "<=",
+      "unit": "ratio",
+      "utilization": 0.72,
+      "formula_text": "DEMO: utilization = demand / limit",
+      "substitution": "DEMO: 0.72 / 1 = 0.720000",
+      "source": "DEMO manually authored; not a normative design check",
+      "clause": "DEMO illustrative only",
+      "trace_ids": [
+        "T_DEMO_4"
+      ],
+      "na_reason": ""
+    },
+    {
+      "id": "C_DEMO_5",
+      "target_id": "FRAME",
+      "combination_id": "SLS1",
+      "item": "drift",
+      "status": "PASS",
+      "demand": 0.002,
+      "limit": 0.004,
+      "comparator": "<=",
+      "unit": "ratio",
+      "utilization": 0.5,
+      "formula_text": "DEMO: utilization = demand / limit",
+      "substitution": "DEMO: 0.002 / 0.004 = 0.500000",
+      "source": "DEMO manually authored; not a normative design check",
+      "clause": "DEMO illustrative only",
+      "trace_ids": [
+        "T_DEMO_5"
+      ],
+      "na_reason": ""
+    }
+  ],
+  "traces": [
+    {
+      "id": "T_DEMO_1",
+      "name": "DEMO B10 strength",
+      "formula_text": "DEMO supplied demand",
+      "inputs": {
+        "data_kind": "DEMO",
+        "supplied_demand": 120.0
+      },
+      "intermediate": [
+        "No independent solver verification"
+      ],
+      "result": 120.0,
+      "unit": "MPa",
+      "source": "DEMO presentation data",
+      "result_path": "/checks/0/demand"
+    },
+    {
+      "id": "T_DEMO_2",
+      "name": "DEMO B11 strength",
+      "formula_text": "DEMO supplied demand",
+      "inputs": {
+        "data_kind": "DEMO",
+        "supplied_demand": 270.0
+      },
+      "intermediate": [
+        "No independent solver verification"
+      ],
+      "result": 270.0,
+      "unit": "MPa",
+      "source": "DEMO presentation data",
+      "result_path": "/checks/1/demand"
+    },
+    {
+      "id": "T_DEMO_3",
+      "name": "DEMO B10 deflection",
+      "formula_text": "DEMO supplied demand",
+      "inputs": {
+        "data_kind": "DEMO",
+        "supplied_demand": 12.0
+      },
+      "intermediate": [
+        "No independent solver verification"
+      ],
+      "result": 12.0,
+      "unit": "mm",
+      "source": "DEMO presentation data",
+      "result_path": "/checks/2/demand"
+    },
+    {
+      "id": "T_DEMO_4",
+      "name": "DEMO C10 stability",
+      "formula_text": "DEMO supplied demand",
+      "inputs": {
+        "data_kind": "DEMO",
+        "supplied_demand": 0.72
+      },
+      "intermediate": [
+        "No independent solver verification"
+      ],
+      "result": 0.72,
+      "unit": "ratio",
+      "source": "DEMO presentation data",
+      "result_path": "/checks/3/demand"
+    },
+    {
+      "id": "T_DEMO_5",
+      "name": "DEMO FRAME drift",
+      "formula_text": "DEMO supplied demand",
+      "inputs": {
+        "data_kind": "DEMO",
+        "supplied_demand": 0.002
+      },
+      "intermediate": [
+        "No independent solver verification"
+      ],
+      "result": 0.002,
+      "unit": "ratio",
+      "source": "DEMO presentation data",
+      "result_path": "/checks/4/demand"
+    }
+  ],
+  "provenance": {
+    "data_kind": "demonstration",
+    "tool_versions": {
+      "builder": "steelmind-export-1.0"
+    },
+    "source": "DEMO: manually authored presentation data; no independent solver",
+    "run_id": "demo-v1"
+  }
+}

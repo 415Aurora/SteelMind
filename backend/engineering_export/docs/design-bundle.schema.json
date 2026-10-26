@@ -1,0 +1,1060 @@
+{
+  "$defs": {
+    "Analysis": {
+      "additionalProperties": false,
+      "properties": {
+        "node_displacements": {
+          "items": {
+            "$ref": "#/$defs/NodeDisplacement"
+          },
+          "title": "Node Displacements",
+          "type": "array"
+        },
+        "reactions": {
+          "items": {
+            "$ref": "#/$defs/Reaction"
+          },
+          "title": "Reactions",
+          "type": "array"
+        },
+        "member_end_forces": {
+          "items": {
+            "$ref": "#/$defs/MemberEndForces"
+          },
+          "title": "Member End Forces",
+          "type": "array"
+        },
+        "member_samples": {
+          "items": {
+            "$ref": "#/$defs/MemberSample"
+          },
+          "title": "Member Samples",
+          "type": "array"
+        }
+      },
+      "title": "Analysis",
+      "type": "object"
+    },
+    "Check": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "combination_id": {
+          "minLength": 1,
+          "title": "Combination Id",
+          "type": "string"
+        },
+        "item": {
+          "minLength": 1,
+          "title": "Item",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NA"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "demand": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demand"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limit"
+        },
+        "comparator": {
+          "default": "<=",
+          "enum": [
+            "<=",
+            ">=",
+            "abs<="
+          ],
+          "title": "Comparator",
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "MPa",
+            "kN",
+            "kN*m",
+            "mm",
+            "rad",
+            "ratio"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "utilization": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Utilization"
+        },
+        "formula_text": {
+          "default": "",
+          "title": "Formula Text",
+          "type": "string"
+        },
+        "substitution": {
+          "default": "",
+          "title": "Substitution",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        },
+        "clause": {
+          "default": "",
+          "title": "Clause",
+          "type": "string"
+        },
+        "trace_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Trace Ids",
+          "type": "array"
+        },
+        "na_reason": {
+          "default": "",
+          "title": "Na Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "target_id",
+        "combination_id",
+        "item",
+        "status",
+        "unit"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
+    "Combination": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "factors": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Factors",
+          "type": "object"
+        },
+        "limit_state": {
+          "enum": [
+            "ULS",
+            "SLS",
+            "ANALYSIS"
+          ],
+          "title": "Limit State",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "factors",
+        "limit_state",
+        "source"
+      ],
+      "title": "Combination",
+      "type": "object"
+    },
+    "LoadCase": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "permanent",
+            "variable",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "loads": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "nodal": "#/$defs/NodalLoad",
+                "uniform_member": "#/$defs/UniformMemberLoad"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/NodalLoad"
+              },
+              {
+                "$ref": "#/$defs/UniformMemberLoad"
+              }
+            ]
+          },
+          "title": "Loads",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "source"
+      ],
+      "title": "LoadCase",
+      "type": "object"
+    },
+    "Material": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "E_MPa": {
+          "title": "E Mpa",
+          "type": "number"
+        },
+        "fy_MPa": {
+          "title": "Fy Mpa",
+          "type": "number"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "E_MPa",
+        "fy_MPa",
+        "source"
+      ],
+      "title": "Material",
+      "type": "object"
+    },
+    "Member": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "node_i": {
+          "minLength": 1,
+          "title": "Node I",
+          "type": "string"
+        },
+        "node_j": {
+          "minLength": 1,
+          "title": "Node J",
+          "type": "string"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "material_id": {
+          "minLength": 1,
+          "title": "Material Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "beam",
+            "column"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "release_i": {
+          "default": false,
+          "title": "Release I",
+          "type": "boolean"
+        },
+        "release_j": {
+          "default": false,
+          "title": "Release J",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "node_i",
+        "node_j",
+        "section_id",
+        "material_id",
+        "kind"
+      ],
+      "title": "Member",
+      "type": "object"
+    },
+    "MemberEndForces": {
+      "additionalProperties": false,
+      "properties": {
+        "member_id": {
+          "minLength": 1,
+          "title": "Member Id",
+          "type": "string"
+        },
+        "combination_id": {
+          "minLength": 1,
+          "title": "Combination Id",
+          "type": "string"
+        },
+        "Ni_kN": {
+          "title": "Ni Kn",
+          "type": "number"
+        },
+        "Vi_kN": {
+          "title": "Vi Kn",
+          "type": "number"
+        },
+        "Mi_kNm": {
+          "title": "Mi Knm",
+          "type": "number"
+        },
+        "Nj_kN": {
+          "title": "Nj Kn",
+          "type": "number"
+        },
+        "Vj_kN": {
+          "title": "Vj Kn",
+          "type": "number"
+        },
+        "Mj_kNm": {
+          "title": "Mj Knm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "member_id",
+        "combination_id",
+        "Ni_kN",
+        "Vi_kN",
+        "Mi_kNm",
+        "Nj_kN",
+        "Vj_kN",
+        "Mj_kNm"
+      ],
+      "title": "MemberEndForces",
+      "type": "object"
+    },
+    "MemberSample": {
+      "additionalProperties": false,
+      "properties": {
+        "member_id": {
+          "minLength": 1,
+          "title": "Member Id",
+          "type": "string"
+        },
+        "combination_id": {
+          "minLength": 1,
+          "title": "Combination Id",
+          "type": "string"
+        },
+        "x_m": {
+          "title": "X M",
+          "type": "number"
+        },
+        "side": {
+          "enum": [
+            "left",
+            "right",
+            "single"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "N_kN": {
+          "title": "N Kn",
+          "type": "number"
+        },
+        "V_kN": {
+          "title": "V Kn",
+          "type": "number"
+        },
+        "M_kNm": {
+          "title": "M Knm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "member_id",
+        "combination_id",
+        "x_m",
+        "side",
+        "N_kN",
+        "V_kN",
+        "M_kNm"
+      ],
+      "title": "MemberSample",
+      "type": "object"
+    },
+    "Model": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "minItems": 2,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "members": {
+          "items": {
+            "$ref": "#/$defs/Member"
+          },
+          "minItems": 1,
+          "title": "Members",
+          "type": "array"
+        },
+        "materials": {
+          "items": {
+            "$ref": "#/$defs/Material"
+          },
+          "minItems": 1,
+          "title": "Materials",
+          "type": "array"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/Section"
+          },
+          "minItems": 1,
+          "title": "Sections",
+          "type": "array"
+        },
+        "supports": {
+          "items": {
+            "$ref": "#/$defs/Support"
+          },
+          "title": "Supports",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes",
+        "members",
+        "materials",
+        "sections"
+      ],
+      "title": "Model",
+      "type": "object"
+    },
+    "NodalLoad": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "nodal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "fx_kN": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fx Kn"
+        },
+        "fy_kN": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fy Kn"
+        },
+        "mz_kNm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mz Knm"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id"
+      ],
+      "title": "NodalLoad",
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "x_m": {
+          "title": "X M",
+          "type": "number"
+        },
+        "y_m": {
+          "title": "Y M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "x_m",
+        "y_m"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "NodeDisplacement": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "combination_id": {
+          "minLength": 1,
+          "title": "Combination Id",
+          "type": "string"
+        },
+        "ux_mm": {
+          "title": "Ux Mm",
+          "type": "number"
+        },
+        "uy_mm": {
+          "title": "Uy Mm",
+          "type": "number"
+        },
+        "rz_rad": {
+          "title": "Rz Rad",
+          "type": "number"
+        }
+      },
+      "required": [
+        "node_id",
+        "combination_id",
+        "ux_mm",
+        "uy_mm",
+        "rz_rad"
+      ],
+      "title": "NodeDisplacement",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "phase": {
+          "default": "方案设计",
+          "title": "Phase",
+          "type": "string"
+        },
+        "designer": {
+          "default": "",
+          "title": "Designer",
+          "type": "string"
+        },
+        "institution": {
+          "default": "",
+          "title": "Institution",
+          "type": "string"
+        },
+        "student_id": {
+          "default": "",
+          "title": "Student Id",
+          "type": "string"
+        },
+        "date": {
+          "default": "",
+          "title": "Date",
+          "type": "string"
+        },
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "data_kind": {
+          "enum": [
+            "demonstration",
+            "analytic_benchmark",
+            "upstream"
+          ],
+          "title": "Data Kind",
+          "type": "string"
+        },
+        "tool_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Tool Versions",
+          "type": "object"
+        },
+        "source": {
+          "default": "",
+          "title": "Source",
+          "type": "string"
+        },
+        "run_id": {
+          "default": "",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_kind"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Reaction": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "combination_id": {
+          "minLength": 1,
+          "title": "Combination Id",
+          "type": "string"
+        },
+        "fx_kN": {
+          "title": "Fx Kn",
+          "type": "number"
+        },
+        "fy_kN": {
+          "title": "Fy Kn",
+          "type": "number"
+        },
+        "mz_kNm": {
+          "title": "Mz Knm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "node_id",
+        "combination_id",
+        "fx_kN",
+        "fy_kN",
+        "mz_kNm"
+      ],
+      "title": "Reaction",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "H",
+            "I"
+          ],
+          "title": "Shape",
+          "type": "string"
+        },
+        "h_mm": {
+          "title": "H Mm",
+          "type": "number"
+        },
+        "b_mm": {
+          "title": "B Mm",
+          "type": "number"
+        },
+        "tw_mm": {
+          "title": "Tw Mm",
+          "type": "number"
+        },
+        "tf_mm": {
+          "title": "Tf Mm",
+          "type": "number"
+        },
+        "A_mm2": {
+          "title": "A Mm2",
+          "type": "number"
+        },
+        "Ix_mm4": {
+          "title": "Ix Mm4",
+          "type": "number"
+        },
+        "Iy_mm4": {
+          "title": "Iy Mm4",
+          "type": "number"
+        },
+        "Wx_mm3": {
+          "title": "Wx Mm3",
+          "type": "number"
+        },
+        "Wy_mm3": {
+          "title": "Wy Mm3",
+          "type": "number"
+        },
+        "property_basis": {
+          "enum": [
+            "idealized",
+            "catalog"
+          ],
+          "title": "Property Basis",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "shape",
+        "h_mm",
+        "b_mm",
+        "tw_mm",
+        "tf_mm",
+        "A_mm2",
+        "Ix_mm4",
+        "Iy_mm4",
+        "Wx_mm3",
+        "Wy_mm3",
+        "property_basis",
+        "source"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "Support": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "ux": {
+          "title": "Ux",
+          "type": "boolean"
+        },
+        "uy": {
+          "title": "Uy",
+          "type": "boolean"
+        },
+        "rz": {
+          "title": "Rz",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "node_id",
+        "ux",
+        "uy",
+        "rz"
+      ],
+      "title": "Support",
+      "type": "object"
+    },
+    "Trace": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "formula_text": {
+          "title": "Formula Text",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Inputs",
+          "type": "object"
+        },
+        "intermediate": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Intermediate",
+          "type": "array"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Result"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "result_path": {
+          "title": "Result Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "formula_text",
+        "result",
+        "unit",
+        "source",
+        "result_path"
+      ],
+      "title": "Trace",
+      "type": "object"
+    },
+    "UniformMemberLoad": {
+      "additionalProperties": false,
+      "description": "Uniform loading in member LOCAL axes, force per actual member length.",
+      "properties": {
+        "kind": {
+          "const": "uniform_member",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "qx_kN_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qx Kn M"
+        },
+        "qy_kN_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qy Kn M"
+        }
+      },
+      "required": [
+        "kind",
+        "target_id"
+      ],
+      "title": "UniformMemberLoad",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "project": {
+      "$ref": "#/$defs/Project"
+    },
+    "model": {
+      "$ref": "#/$defs/Model"
+    },
+    "load_cases": {
+      "items": {
+        "$ref": "#/$defs/LoadCase"
+      },
+      "title": "Load Cases",
+      "type": "array"
+    },
+    "combinations": {
+      "items": {
+        "$ref": "#/$defs/Combination"
+      },
+      "title": "Combinations",
+      "type": "array"
+    },
+    "analysis": {
+      "$ref": "#/$defs/Analysis"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/Check"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "traces": {
+      "items": {
+        "$ref": "#/$defs/Trace"
+      },
+      "title": "Traces",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "schema_version",
+    "project",
+    "model",
+    "provenance"
+  ],
+  "title": "DesignBundle",
+  "type": "object"
+}

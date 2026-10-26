@@ -1,0 +1,1643 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SteelMind 成果生成接口",
+    "description": "二维钢框架方案成果生成。文件生成、数据校核与上游验算项汇总分别报告。部署默认仅用于本地/团队受控网关。",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/validate": {
+      "post": {
+        "summary": "Validate",
+        "operationId": "validate_api_v1_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calculation-books": {
+      "post": {
+        "summary": "Calculation Books",
+        "operationId": "calculation_books_api_v1_calculation_books_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicGenerationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/design-files": {
+      "post": {
+        "summary": "Design Files",
+        "operationId": "design_files_api_v1_design_files_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicGenerationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/packages": {
+      "post": {
+        "summary": "Packages",
+        "operationId": "packages_api_v1_packages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicGenerationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}": {
+      "get": {
+        "summary": "Run Result",
+        "operationId": "run_result_api_v1_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicGenerationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/files/{artifact_id}": {
+      "get": {
+        "summary": "Download",
+        "operationId": "download_api_v1_runs__run_id__files__artifact_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artifact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Analysis": {
+        "properties": {
+          "node_displacements": {
+            "items": {
+              "$ref": "#/components/schemas/NodeDisplacement"
+            },
+            "type": "array",
+            "title": "Node Displacements"
+          },
+          "reactions": {
+            "items": {
+              "$ref": "#/components/schemas/Reaction"
+            },
+            "type": "array",
+            "title": "Reactions"
+          },
+          "member_end_forces": {
+            "items": {
+              "$ref": "#/components/schemas/MemberEndForces"
+            },
+            "type": "array",
+            "title": "Member End Forces"
+          },
+          "member_samples": {
+            "items": {
+              "$ref": "#/components/schemas/MemberSample"
+            },
+            "type": "array",
+            "title": "Member Samples"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Analysis"
+      },
+      "Artifact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "relative_path": {
+            "type": "string",
+            "title": "Relative Path"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "relative_path",
+          "media_type",
+          "bytes",
+          "sha256",
+          "url"
+        ],
+        "title": "Artifact"
+      },
+      "Check": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Target Id"
+          },
+          "combination_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Combination Id"
+          },
+          "item": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Item"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NA"
+            ],
+            "title": "Status"
+          },
+          "demand": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demand"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "comparator": {
+            "type": "string",
+            "enum": [
+              "<=",
+              ">=",
+              "abs<="
+            ],
+            "title": "Comparator",
+            "default": "<="
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "MPa",
+              "kN",
+              "kN*m",
+              "mm",
+              "rad",
+              "ratio"
+            ],
+            "title": "Unit"
+          },
+          "utilization": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utilization"
+          },
+          "formula_text": {
+            "type": "string",
+            "title": "Formula Text",
+            "default": ""
+          },
+          "substitution": {
+            "type": "string",
+            "title": "Substitution",
+            "default": ""
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": ""
+          },
+          "clause": {
+            "type": "string",
+            "title": "Clause",
+            "default": ""
+          },
+          "trace_ids": {
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": "array",
+            "title": "Trace Ids"
+          },
+          "na_reason": {
+            "type": "string",
+            "title": "Na Reason",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "target_id",
+          "combination_id",
+          "item",
+          "status",
+          "unit"
+        ],
+        "title": "Check"
+      },
+      "Combination": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "factors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "minLength": 1
+            },
+            "type": "object",
+            "title": "Factors"
+          },
+          "limit_state": {
+            "type": "string",
+            "enum": [
+              "ULS",
+              "SLS",
+              "ANALYSIS"
+            ],
+            "title": "Limit State"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "factors",
+          "limit_state",
+          "source"
+        ],
+        "title": "Combination"
+      },
+      "DesignBundle": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0",
+            "title": "Schema Version"
+          },
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "model": {
+            "$ref": "#/components/schemas/Model"
+          },
+          "load_cases": {
+            "items": {
+              "$ref": "#/components/schemas/LoadCase"
+            },
+            "type": "array",
+            "title": "Load Cases"
+          },
+          "combinations": {
+            "items": {
+              "$ref": "#/components/schemas/Combination"
+            },
+            "type": "array",
+            "title": "Combinations"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/Analysis"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "traces": {
+            "items": {
+              "$ref": "#/components/schemas/Trace"
+            },
+            "type": "array",
+            "title": "Traces"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "project",
+          "model",
+          "provenance"
+        ],
+        "title": "DesignBundle"
+      },
+      "ExportRequest": {
+        "properties": {
+          "bundle": {
+            "$ref": "#/components/schemas/DesignBundle"
+          },
+          "options": {
+            "$ref": "#/components/schemas/GenerationOptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bundle"
+        ],
+        "title": "ExportRequest"
+      },
+      "GenerationOptions": {
+        "properties": {
+          "include_pdf": {
+            "type": "boolean",
+            "title": "Include Pdf",
+            "default": true
+          },
+          "include_dwg": {
+            "type": "boolean",
+            "title": "Include Dwg",
+            "default": false
+          },
+          "office_timeout_s": {
+            "type": "integer",
+            "maximum": 300.0,
+            "minimum": 1.0,
+            "title": "Office Timeout S",
+            "default": 120
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GenerationOptions"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Issue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "path"
+        ],
+        "title": "Issue"
+      },
+      "LoadCase": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "permanent",
+              "variable",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "loads": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NodalLoad"
+                },
+                {
+                  "$ref": "#/components/schemas/UniformMemberLoad"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "nodal": "#/components/schemas/NodalLoad",
+                  "uniform_member": "#/components/schemas/UniformMemberLoad"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Loads"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "source"
+        ],
+        "title": "LoadCase"
+      },
+      "Material": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "E_MPa": {
+            "type": "number",
+            "title": "E Mpa"
+          },
+          "fy_MPa": {
+            "type": "number",
+            "title": "Fy Mpa"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "E_MPa",
+          "fy_MPa",
+          "source"
+        ],
+        "title": "Material"
+      },
+      "Member": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "node_i": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Node I"
+          },
+          "node_j": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Node J"
+          },
+          "section_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Section Id"
+          },
+          "material_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Material Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "beam",
+              "column"
+            ],
+            "title": "Kind"
+          },
+          "release_i": {
+            "type": "boolean",
+            "title": "Release I",
+            "default": false
+          },
+          "release_j": {
+            "type": "boolean",
+            "title": "Release J",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "node_i",
+          "node_j",
+          "section_id",
+          "material_id",
+          "kind"
+        ],
+        "title": "Member"
+      },
+      "MemberEndForces": {
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Member Id"
+          },
+          "combination_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Combination Id"
+          },
+          "Ni_kN": {
+            "type": "number",
+            "title": "Ni Kn"
+          },
+          "Vi_kN": {
+            "type": "number",
+            "title": "Vi Kn"
+          },
+          "Mi_kNm": {
+            "type": "number",
+            "title": "Mi Knm"
+          },
+          "Nj_kN": {
+            "type": "number",
+            "title": "Nj Kn"
+          },
+          "Vj_kN": {
+            "type": "number",
+            "title": "Vj Kn"
+          },
+          "Mj_kNm": {
+            "type": "number",
+            "title": "Mj Knm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member_id",
+          "combination_id",
+          "Ni_kN",
+          "Vi_kN",
+          "Mi_kNm",
+          "Nj_kN",
+          "Vj_kN",
+          "Mj_kNm"
+        ],
+        "title": "MemberEndForces"
+      },
+      "MemberSample": {
+        "properties": {
+          "member_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Member Id"
+          },
+          "combination_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Combination Id"
+          },
+          "x_m": {
+            "type": "number",
+            "title": "X M"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right",
+              "single"
+            ],
+            "title": "Side"
+          },
+          "N_kN": {
+            "type": "number",
+            "title": "N Kn"
+          },
+          "V_kN": {
+            "type": "number",
+            "title": "V Kn"
+          },
+          "M_kNm": {
+            "type": "number",
+            "title": "M Knm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member_id",
+          "combination_id",
+          "x_m",
+          "side",
+          "N_kN",
+          "V_kN",
+          "M_kNm"
+        ],
+        "title": "MemberSample"
+      },
+      "Model": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Node"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Nodes"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Members"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/Material"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Materials"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/Section"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Sections"
+          },
+          "supports": {
+            "items": {
+              "$ref": "#/components/schemas/Support"
+            },
+            "type": "array",
+            "title": "Supports"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "nodes",
+          "members",
+          "materials",
+          "sections"
+        ],
+        "title": "Model"
+      },
+      "NodalLoad": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "nodal",
+            "title": "Kind"
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Target Id"
+          },
+          "fx_kN": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fx Kn"
+          },
+          "fy_kN": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fy Kn"
+          },
+          "mz_kNm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mz Knm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "target_id"
+        ],
+        "title": "NodalLoad"
+      },
+      "Node": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "x_m": {
+            "type": "number",
+            "title": "X M"
+          },
+          "y_m": {
+            "type": "number",
+            "title": "Y M"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "x_m",
+          "y_m"
+        ],
+        "title": "Node"
+      },
+      "NodeDisplacement": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Node Id"
+          },
+          "combination_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Combination Id"
+          },
+          "ux_mm": {
+            "type": "number",
+            "title": "Ux Mm"
+          },
+          "uy_mm": {
+            "type": "number",
+            "title": "Uy Mm"
+          },
+          "rz_rad": {
+            "type": "number",
+            "title": "Rz Rad"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node_id",
+          "combination_id",
+          "ux_mm",
+          "uy_mm",
+          "rz_rad"
+        ],
+        "title": "NodeDisplacement"
+      },
+      "Project": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase",
+            "default": "方案设计"
+          },
+          "designer": {
+            "type": "string",
+            "title": "Designer",
+            "default": ""
+          },
+          "institution": {
+            "type": "string",
+            "title": "Institution",
+            "default": ""
+          },
+          "student_id": {
+            "type": "string",
+            "title": "Student Id",
+            "default": ""
+          },
+          "date": {
+            "type": "string",
+            "title": "Date",
+            "default": ""
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Project"
+      },
+      "Provenance": {
+        "properties": {
+          "data_kind": {
+            "type": "string",
+            "enum": [
+              "demonstration",
+              "analytic_benchmark",
+              "upstream"
+            ],
+            "title": "Data Kind"
+          },
+          "tool_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Tool Versions"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": ""
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data_kind"
+        ],
+        "title": "Provenance"
+      },
+      "PublicGenerationResult": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "calculation-book",
+              "design-files",
+              "package"
+            ],
+            "title": "Kind"
+          },
+          "generation_status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial",
+              "failed"
+            ],
+            "title": "Generation Status"
+          },
+          "data_validation_status": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "invalid"
+            ],
+            "title": "Data Validation Status"
+          },
+          "upstream_check_summary": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INCOMPLETE"
+            ],
+            "title": "Upstream Check Summary"
+          },
+          "draft": {
+            "type": "boolean",
+            "title": "Draft"
+          },
+          "draft_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Draft Reasons"
+          },
+          "input_sha256": {
+            "type": "string",
+            "title": "Input Sha256"
+          },
+          "normalized_sha256": {
+            "type": "string",
+            "title": "Normalized Sha256"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "created_at",
+          "kind",
+          "generation_status",
+          "data_validation_status",
+          "upstream_check_summary",
+          "draft",
+          "draft_reasons",
+          "input_sha256",
+          "normalized_sha256"
+        ],
+        "title": "PublicGenerationResult"
+      },
+      "Reaction": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Node Id"
+          },
+          "combination_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Combination Id"
+          },
+          "fx_kN": {
+            "type": "number",
+            "title": "Fx Kn"
+          },
+          "fy_kN": {
+            "type": "number",
+            "title": "Fy Kn"
+          },
+          "mz_kNm": {
+            "type": "number",
+            "title": "Mz Knm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node_id",
+          "combination_id",
+          "fx_kN",
+          "fy_kN",
+          "mz_kNm"
+        ],
+        "title": "Reaction"
+      },
+      "Section": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "H",
+              "I"
+            ],
+            "title": "Shape"
+          },
+          "h_mm": {
+            "type": "number",
+            "title": "H Mm"
+          },
+          "b_mm": {
+            "type": "number",
+            "title": "B Mm"
+          },
+          "tw_mm": {
+            "type": "number",
+            "title": "Tw Mm"
+          },
+          "tf_mm": {
+            "type": "number",
+            "title": "Tf Mm"
+          },
+          "A_mm2": {
+            "type": "number",
+            "title": "A Mm2"
+          },
+          "Ix_mm4": {
+            "type": "number",
+            "title": "Ix Mm4"
+          },
+          "Iy_mm4": {
+            "type": "number",
+            "title": "Iy Mm4"
+          },
+          "Wx_mm3": {
+            "type": "number",
+            "title": "Wx Mm3"
+          },
+          "Wy_mm3": {
+            "type": "number",
+            "title": "Wy Mm3"
+          },
+          "property_basis": {
+            "type": "string",
+            "enum": [
+              "idealized",
+              "catalog"
+            ],
+            "title": "Property Basis"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "shape",
+          "h_mm",
+          "b_mm",
+          "tw_mm",
+          "tf_mm",
+          "A_mm2",
+          "Ix_mm4",
+          "Iy_mm4",
+          "Wx_mm3",
+          "Wy_mm3",
+          "property_basis",
+          "source"
+        ],
+        "title": "Section"
+      },
+      "Support": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Node Id"
+          },
+          "ux": {
+            "type": "boolean",
+            "title": "Ux"
+          },
+          "uy": {
+            "type": "boolean",
+            "title": "Uy"
+          },
+          "rz": {
+            "type": "boolean",
+            "title": "Rz"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node_id",
+          "ux",
+          "uy",
+          "rz"
+        ],
+        "title": "Support"
+      },
+      "Trace": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "formula_text": {
+            "type": "string",
+            "title": "Formula Text"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Inputs"
+          },
+          "intermediate": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Intermediate"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Result"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "result_path": {
+            "type": "string",
+            "title": "Result Path"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "formula_text",
+          "result",
+          "unit",
+          "source",
+          "result_path"
+        ],
+        "title": "Trace"
+      },
+      "UniformMemberLoad": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "uniform_member",
+            "title": "Kind"
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Target Id"
+          },
+          "qx_kN_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qx Kn M"
+          },
+          "qy_kN_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qy Kn M"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "target_id"
+        ],
+        "title": "UniformMemberLoad",
+        "description": "Uniform loading in member LOCAL axes, force per actual member length."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValidationReport": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "data_validation_status": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "invalid"
+            ],
+            "title": "Data Validation Status"
+          },
+          "upstream_check_summary": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INCOMPLETE"
+            ],
+            "title": "Upstream Check Summary"
+          },
+          "draft": {
+            "type": "boolean",
+            "title": "Draft"
+          },
+          "draft_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Draft Reasons"
+          },
+          "coverage_profile": {
+            "type": "string",
+            "title": "Coverage Profile",
+            "default": "steel-frame-teaching-v1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "valid",
+          "data_validation_status",
+          "upstream_check_summary",
+          "draft"
+        ],
+        "title": "ValidationReport"
+      }
+    }
+  }
+}

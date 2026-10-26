@@ -45,3 +45,11 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 本版本的工作流是确定性工具编排，不会让 DeepSeek 自动猜测荷载或擅自选截面；截面迭代只会按请求中的候选列表顺序尝试。当前 OpenSees 工具只建立线弹性二维框架简化模型，不会将 Excel 模板中的任意三维节点、杆件、连接释放、荷载工况完整映射到有限元模型。没有提供构件内力输入时也不会声称完成构件验算。计算书和 DXF 是方案级辅助成果，必须经工程师核验，DXF 并非可直接施工的正式图纸。
 
 DeepSeek 聊天 API 与 LangChain 工程流程是两条分开的路径：前者用于对话解释，后者按结构化参数通过 LCEL 运行确定性工具。后续可再加入模型提取 Excel 参数、指出缺项并征求人类确认的步骤，但结构计算和验算仍应由明确的数值工具执行。
+
+## 项目代码与工具位置
+
+运行中的 Python 工具源码现已集中在 `backend/tool_sources/`，网关默认从仓库内加载，不再依赖 `C:\Users\Administrator\Downloads`。下载目录中的原件保留未动。工具与工作流代码位置、网页代码及 RAG 代码索引见 [`backend/README.md`](backend/README.md) 的“代码与工具索引”。
+
+主要入口：`backend/app.py` 是 HTTP 网关，`backend/workflow.py` 编排三条 LangChain LCEL 工作流，`backend/knowledge_tools.py` 连接本地规范 RAG，`dist/index.html` 是网页，`tools/build_model_template.mjs` 生成 Excel 参数模板。Python 环境安装和启动步骤请看 [`backend/README.md`](backend/README.md)。
+
+工作流3现接入 `backend/tool_sources/engineering_drawings.py` 与 `backend/engineering_export/`。工作流2最终报告会先转换并预检为 DesignBundle，再生成计算书、结果表、DXF/PDF二维方案图和 ZIP；数据缺项会拦截或标为草稿。该组件目前只支持二维方案级表达，不能代替正式施工图、规范组合分析或专业审查，详细输入输出契约见 [`backend/README.md`](backend/README.md)。
