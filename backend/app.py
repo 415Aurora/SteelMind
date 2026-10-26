@@ -479,7 +479,9 @@ def run_section_iteration_stream(request: WorkflowRequest) -> StreamingResponse:
 
 @app.get("/files/{artifact_id}")
 def download_artifact(artifact_id: str) -> FileResponse:
-    if not re.fullmatch(r"[0-9a-f]{32}_[A-Za-z0-9._-]+", artifact_id):
+    # Generated artifact names may retain Unicode (notably Chinese) filenames.
+    # Keep path separators excluded while allowing those safe names through.
+    if not re.fullmatch(r"[0-9a-f]{32}_[\w.-]+", artifact_id, flags=re.UNICODE):
         raise HTTPException(status_code=404, detail="文件不存在")
     path = (ARTIFACT_DIR / artifact_id).resolve()
     if path.parent != ARTIFACT_DIR or not path.is_file():
