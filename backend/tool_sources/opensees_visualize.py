@@ -100,22 +100,25 @@ def _section_shape(name):
     props = _get_section(str(name))
     if not props or not all(key in props for key in ("h", "b", "tw", "t1")):
         return None
-    return {"name": str(name), "h_mm": float(props["h"]), "b_mm": float(props["b"]),
+    return {"name": props["name"], "h_mm": float(props["h"]), "b_mm": float(props["b"]),
             "tw_mm": float(props["tw"]), "tf_mm": float(props["t1"]),
+            "root_radius_mm": float(props["root_radius_mm"]),
+            "catalog_standard": props["catalog_standard"], "catalog_id": props["catalog_id"],
             "A_mm2": float(props["A"]), "Ix_mm4": float(props["Ix"]), "Iy_mm4": float(props["Iy"])}
 
 
 @tool
 def draw_steel_section(payload: str) -> str:
-    """根据型钢截面型号返回可绘制的截面几何与尺寸，支持内置 H/I 型钢及 H:hxbxtwxtf。"""
+    """根据本地 GB/T 11263-2024 H 型钢库中的型号返回实际尺寸与截面特性。"""
     try:
         data = json.loads(payload) if isinstance(payload, str) else dict(payload)
         name = data.get("section") or data.get("name") or ""
         shape = _section_shape(name)
         if not shape:
             return json.dumps({"ok": False, "section": name,
-                               "message": "该型号没有可用于绘图的 h、b、tw、tf 几何数据；请补充截面尺寸，不会用示意形状代替实际截面。"}, ensure_ascii=False)
-        return json.dumps({"ok": True, "profile": "I/H", "units": "mm", "shape": shape}, ensure_ascii=False)
+                               "message": "该型号不在本地 GB/T 11263-2024 H 型钢库中；请选择库内截面，不接受自定义几何。"}, ensure_ascii=False)
+        return json.dumps({"ok": True, "profile": "H", "units": "mm", "source": "GB/T 11263-2024 附录A 表A.1",
+                           "shape": shape}, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False)
 
@@ -158,7 +161,7 @@ function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h)retur
  ctx.fillStyle='#9eb4c4';ctx.font='12px Segoe UI,Microsoft YaHei';const origin=project([0,0,0]),xend=project([Math.min(maxX,2),0,0]),yend=project([0,Math.min(maxY,2),0]);ctx.fillText('X',xend[0]+6,xend[1]);ctx.fillText('Y',yend[0]+6,yend[1]);ctx.fillText('Z',origin[0]+12,origin[1]+12);
 }
 function showMember(id){selectedMember=id;const item=M.member_checks?.[id],status=M.member_statuses?.[id],panel=document.getElementById('memberInspector'),checks=document.getElementById('inspectorChecks');document.getElementById('inspectorTitle').textContent=`${id} · ${id.startsWith('B-')?'梁':'柱'}验算`;const values=item?.demands||{},fmt=(v,u)=>Number.isFinite(Number(v))?`${Number(v).toLocaleString('zh-CN',{maximumFractionDigits:3})} ${u}`:'未提供',overall=item?(status?'综合结论：当前提交验算项均通过':'综合结论：至少一项未通过'):'综合结论：未验算';document.getElementById('inspectorMeta').textContent=`${overall}\n截面：${item?.section||'未提供'}　|　钢材：${item?.steel||'未提供'}　|　跨度：${fmt(item?.span_m,'m')}\n轴力 N：${fmt(values.N_kn,'kN')}　弯矩 Mx：${fmt(values.Mx_kNm,'kN·m')}　My：${fmt(values.My_kNm,'kN·m')}\n剪力 V：${fmt(values.V_kn,'kN')}　挠度：${fmt(values.deflection_mm,'mm')}`;checks.replaceChildren();if(!item){const empty=document.createElement('div');empty.className='check-empty';empty.textContent='该构件尚无逐构件验算记录。请先运行完整工作流；仅生成几何模型时不会显示虚构的验算指标。';checks.append(empty)}else if(!Array.isArray(item.checks)||!item.checks.length){const empty=document.createElement('div');empty.className='check-empty';empty.textContent=item.error||item.result||'未返回机器可读验算明细。';checks.append(empty)}else for(const check of item.checks){const card=document.createElement('section'),heading=document.createElement('b'),label=document.createElement('span'),badge=document.createElement('span'),text=document.createElement('p');card.className='check-item';label.textContent=check.item||'验算项';badge.className=check.passed?'check-pass':'check-fail';badge.textContent=check.passed?'通过':'未通过';heading.append(label,badge);text.textContent=check.text||'无详细说明';card.append(heading,text);checks.append(card)}panel.classList.add('open');draw()}
-function showSectionForMember(id){const role=id.startsWith('B-')?'梁':'柱',item=M.member_checks?.[id],shape=M.member_shapes?.[id]||(role==='梁'?M.beam_shape:M.column_shape),svg=document.getElementById('sectionDrawing'),dims=document.getElementById('sectionDimensions');svg.replaceChildren();if(!shape){dims.textContent=`${role}截面：${item?.section||M[role==='梁'?'beam_name':'column_name']||'未知'}\n未提供可绘制的 h、b、tw、tf 参数；当前仅显示截面名称，不以示意图冒充实际截面。`;return}const h=shape.h_mm,b=shape.b_mm,tw=shape.tw_mm,tf=shape.tf_mm,pad=14,scale=Math.min((260-pad*2)/b,(150-pad*2)/h),width=b*scale,height=h*scale,x=(260-width)/2,y=(150-height)/2,c=b/2,points=[[0,0],[b,0],[b,tf],[c+tw/2,tf],[c+tw/2,h-tf],[b,h-tf],[b,h],[0,h],[0,h-tf],[c-tw/2,h-tf],[c-tw/2,tf],[0,tf]].map(([px,py])=>`${(x+px*scale).toFixed(2)},${(y+py*scale).toFixed(2)}`).join(' '),polygon=document.createElementNS('http://www.w3.org/2000/svg','polygon');polygon.setAttribute('points',points);polygon.setAttribute('fill','#39d0bd');polygon.setAttribute('stroke','#e8f1f7');polygon.setAttribute('stroke-width','2');svg.append(polygon);dims.textContent=`${shape.name}　单位：mm\nh=${h} · b=${b} · 腹板 tw=${tw} · 翼缘 tf=${tf}\nA=${Number(shape.A_mm2).toFixed(0)} mm² · Ix=${Number(shape.Ix_mm4).toExponential(3)} mm⁴ · Iy=${Number(shape.Iy_mm4).toExponential(3)} mm⁴`}
+function showSectionForMember(id){const role=id.startsWith('B-')?'梁':'柱',item=M.member_checks?.[id],shape=M.member_shapes?.[id]||(role==='梁'?M.beam_shape:M.column_shape),svg=document.getElementById('sectionDrawing'),dims=document.getElementById('sectionDimensions');svg.replaceChildren();if(!shape){dims.textContent=`${role}截面：${item?.section||M[role==='梁'?'beam_name':'column_name']||'未知'}\n未提供可绘制的 h、b、tw、tf 参数；当前仅显示截面名称，不以示意图冒充实际截面。`;return}const h=shape.h_mm,b=shape.b_mm,tw=shape.tw_mm,tf=shape.tf_mm,pad=14,scale=Math.min((260-pad*2)/b,(150-pad*2)/h),width=b*scale,height=h*scale,x=(260-width)/2,y=(150-height)/2,c=b/2,points=[[0,0],[b,0],[b,tf],[c+tw/2,tf],[c+tw/2,h-tf],[b,h-tf],[b,h],[0,h],[0,h-tf],[c-tw/2,h-tf],[c-tw/2,tf],[0,tf]].map(([px,py])=>`${(x+px*scale).toFixed(2)},${(y+py*scale).toFixed(2)}`).join(' '),polygon=document.createElementNS('http://www.w3.org/2000/svg','polygon');polygon.setAttribute('points',points);polygon.setAttribute('fill','#39d0bd');polygon.setAttribute('stroke','#e8f1f7');polygon.setAttribute('stroke-width','2');svg.append(polygon);dims.textContent=`${shape.name}　单位：mm\nh=${h} · b=${b} · 腹板 tw=${tw} · 翼缘 tf=${tf}\nA=${Number(shape.A_mm2).toFixed(0)} mm² · Ix=${Number(shape.Ix_mm4).toExponential(3)} mm⁴ · Iy=${Number(shape.Iy_mm4).toExponential(3)} mm⁴\nr=${shape.root_radius_mm} mm · Source: ${shape.catalog_standard} ${shape.catalog_id} (schematic omits fillets)`}
 const showMemberWithSection=showMember;showMember=function(id){showMemberWithSection(id);showSectionForMember(id)};
 function distanceToSegment(px,py,item){const dx=item.b[0]-item.a[0],dy=item.b[1]-item.a[1],length=dx*dx+dy*dy,t=length?Math.max(0,Math.min(1,((px-item.a[0])*dx+(py-item.a[1])*dy)/length)):0;return Math.hypot(px-(item.a[0]+t*dx),py-(item.a[1]+t*dy))}
 canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,pan:e.shiftKey||e.button===2};canvas.classList.add('dragging');canvas.setPointerCapture(e.pointerId)});

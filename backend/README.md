@@ -4,6 +4,12 @@ FastAPI 网关默认从仓库内 `backend/tool_sources/` 加载结构工具；�
 
 ## 启动
 
+Windows 可双击项目根目录的 `start_tool_gateway.bat` 启动本地服务（使用项目 `.venv`）。服务窗口需要保持运行；关闭窗口会停止网关。首次使用或升级依赖时，运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
 在安装了 Python 依赖的 Anaconda Prompt / PowerShell 中运行：
 
 ```powershell
@@ -21,7 +27,8 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 | `app.py` | FastAPI 网关、工具动态加载、单工具调用/API、SSE 工作流路由、健康检查、产物下载及本地/S3 存储适配 |
 | `workflow.py` | LangChain LCEL 工作流编排：信息获取与截面初选、截面迭代优化、工程文件输出；记录步骤输入/输出 |
 | `knowledge_tools.py` | SteelMind 对本地规范 RAG 的适配：`search_steel_standards`、`query_region_params` |
-| `tool_sources/structural_calc.py` | `validate_steel_frame_parameters`、`calculate_load_combination`、`check_steel_member`；另有旧兼容工具 `optimize_steel_truss_members` |
+| `tool_sources/structural_calc.py` | `validate_steel_frame_parameters`、`query_steel_sections`、`calculate_load_combination`、`check_steel_member`；另有旧兼容工具 `optimize_steel_truss_members` |
+| `section_catalog.py`、`steel_sections.json` | 统一本地型钢截面数据与查找接口；当前收录 GB/T 11263-2024 附录A表A.1的 430 个热轧H型钢型号，设计、验算、OpenSees、优化和截面展示共用。`scripts/build_section_catalog.py` 从本地规范 PDF 重建 JSON |
 | `tool_sources/opensees_analysis.py` | `opensees_frame_verify`：参数化二维钢框架 OpenSeesPy 建模与静力分析；为成果导出返回实体节点、位移、支座反力、杆件节点关系和局部端力 |
 | `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：框架三维交互展示、构件验算着色和截面图形数据 |
 | `tool_sources/generate_design_files.py` | `generate_calculation_book`、`generate_design_outputs`：生成计算书及 Excel/Word/DXF 文件 |
@@ -61,11 +68,22 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 ## 工具要求与输出
 
 - 参数校验、荷载组合、钢构件验算、OpenSeesPy 分析、截面绘制和成果生成：使用 LangChain 工具接口；工作流通过 LCEL 编排，分析后自动遍历 OpenSees 返回的物理构件列表。
-- `draw_steel_section` 根据型钢名返回 H/I 截面几何、尺寸、面积和惯性矩；框架查看器复用该绘图数据，点击构件后显示实际截面轮廓与尺寸。对于没有 `h/b/tw/tf` 几何参数的自定义截面，只显示型号并明确提示未绘制，不会臆造几何图。
+- 本地截面库 `/sections`、`/sections/{section_id}` 和 `query_steel_sections` 提供型号检索；输入可用规范型号（如 `H400x200x8x13`）或旧模板别名。初选与迭代会将型号归一到库内规范ID，未知型号拒绝进入计算。OpenSees 的面积和强轴惯性矩、构件验算属性及计算书/图纸导出统一读取同一个截面记录。
+- `draw_steel_section` 根据本地截面库返回尺寸、表列面积/惯性矩、来源与轧制圆角；框架查看器读取同一记录并按截面尺寸绘图，点击构件后展示截面与验算数据。当前图形用 h/b/tw/tf 表示 H 形轮廓，r 作为截面库标注值；不会把示意轮廓声明为制造详图。
 - 旧版网架筛选：`/invoke/optimize_steel_truss_members` 暂保留为兼容接口，仅供 ANSYS 后处理导出的钢网架杆件 JSON 使用；不读取 `.rst/.db`。新项目钢框架不要调用此单项网架工具，使用下述“截面迭代与优化”工作流。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
 - 规范 RAG：`/knowledge/bases` 返回 07 索引的目录与规范清单；网页可多选来源目录，`source_dirs` 会贯通 `/knowledge/search`、单项工具和 LCEL 地区查询，并与可选的 `standard_ids` 进一步取交集。`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。`Knowledge/` 为本地知识库目录，已加入 Git 忽略规则，网页部署包不会包含规范原文和数据库。
 - 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
+
+### 本地截面库
+
+当前库由用户本地提供的 GB/T 11263-2024 PDF 附录A表A.1提取，含 430 个热轧H型钢。规范号/尺寸/面积/惯性矩/截面模数/回转半径/理论重量保存在 `backend/steel_sections.json`，服务不依赖运行时网络或规范 PDF。查询可用 `GET /sections?limit=500`、`GET /sections/{型号}` 或工具 `query_steel_sections`；H400×200×8×13 推荐填写规范型号 `H400x200x8x13`，旧模板别名 `HN400x200` 会归一到同一记录。截面目录重建命令：
+
+```powershell
+.venv\Scripts\python.exe backend\scripts\build_section_catalog.py
+```
+
+目前版本专注框架常用的热轧H型钢，暂不提供T型钢、GB/T 706工字钢/槽钢/角钢、钢管及自定义焊接截面；不要把不在库内的截面型号用于分析或验算。型钢表未列腹板剪切面积一阶矩时，`Sx` 使用矩形分解近似，计算报告应保留该假定说明。
 
 ## OpenSees → 逐构件验算 → 报告/可视化
 
@@ -83,7 +101,7 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 
 `opensees_frame_verify` 将每根梁/柱离散为 8 段，返回稳定的构件编号（例如 `B-S1-G1`、`C-S1-G1`）、截面、钢材、几何长度、暂定计算长度、分段端部局部力、轴力/弯矩/剪力包络及构件弦线相对横向变形。工作流将这些值交给 `check_steel_member` 逐根验算，并在结果中提供机器可读 `passed`、验算项明细和计算文字；再将构件验算状态传给 `opensees_frame_visualize` 着色显示。工程文件现在由第三条工作流独立输出。
 
-重要边界：当前分析是二维、线弹性、单次静力工况；弱轴弯矩在平面模型中取 0，轴力按绝对值包络保守传递，计算长度暂按构件几何长度。层间位移角被输出但因未输入项目限值，不自动判定合格。挠度限值使用工具缺省值，须按用途和适用规范核对。截面属性依赖验算工具内置型钢表。此原型不等同多荷载组合包络、完整 GB 50017 设计验算或工程审查，不能据此作安全结论。
+重要边界：当前分析是二维、线弹性、单次静力工况；弱轴弯矩在平面模型中取 0，轴力按绝对值包络保守传递，计算长度暂按构件几何长度。层间位移角被输出但因未输入项目限值，不自动判定合格。挠度限值使用工具缺省值，须按用途和适用规范核对。当前截面库范围为 GB/T 11263-2024 附录A表A.1热轧H型钢，不包括T、槽钢、角钢、圆/矩形管和焊接自定义截面；型钢表列值用于计算，腹板剪切面积的一阶矩采用矩形近似并在工具中标明。此原型不等同多荷载组合包络、完整 GB 50017 设计验算或工程审查，不能据此作安全结论。
 
 ## 三条设计工作流
 

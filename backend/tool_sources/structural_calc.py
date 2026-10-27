@@ -13,6 +13,7 @@ import math
 from typing import Dict, Optional
 
 from langchain.tools import tool
+from section_catalog import catalog_info, search_sections, section_properties, section_record
 
 # ------------------------- 材料强度设计值 (GB50017-2017 表4.4.1) -------------------------
 # steel -> (fy 屈服强度, f 抗拉/压/弯强度设计值, fv 抗剪强度设计值) 单位 N/mm² (t<=16mm)
@@ -60,74 +61,44 @@ def validate_steel_frame_parameters(payload: str) -> str:
         for role in ("beam", "column"):
             initial = sections.get(f"{role}_section")
             names = candidates.get(role)
-            if not initial or not isinstance(names, list) or initial not in names:
+            initial_record = section_record(str(initial)) if initial else None
+            candidate_ids = [section_record(str(name))["id"] for name in (names if isinstance(names, list) else [])
+                             if section_record(str(name))]
+            if not initial or not isinstance(names, list) or not initial_record or initial_record["id"] not in candidate_ids:
                 errors.append(f"{role}初始截面需填写，且须包含在 candidate_sections.{role} 中")
+            if initial and not initial_record:
+                errors.append(f"{role}初始截面 {initial} 不在本地 GB/T 11263-2024 H 型钢库中")
+            if isinstance(names, list):
+                unknown = [str(name) for name in names if not section_record(str(name))]
+                if unknown:
+                    errors.append(f"{role}候选截面不在本地截面库中：{', '.join(unknown[:8])}")
         return json.dumps({"ok": not errors, "status": "valid" if not errors else "invalid",
                            "errors": errors, "geometry": geometry,
                            "message": "字段与基本取值检查通过；仍需确认单位、荷载工况及模型假定。" if not errors else "参数校验未通过。"}, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"ok": False, "status": "invalid", "errors": [f"参数无法解析或字段格式错误：{exc}"]}, ensure_ascii=False)
 
-# ------------------------- 常用热轧 H 型钢截面特性 (GB/T 11263) -------------------------
-# key: (高度h, 翼缘宽度b, 腹板厚tw, 翼缘厚t1) 单位 mm
-# 值: dict(A=截面积mm², Ix, Wx, ix, Iy, Wy, iy, Sx, h0=腹板净高, tw)
-SECTION_DB: Dict[str, dict] = {
-    # 截面名: (h, b, tw, t1)
-    "HM400x300": dict(h=390, b=300, tw=10, t1=16),
-    "HN400x200": dict(h=396, b=199, tw=7, t1=11),
-    "HM350x250": dict(h=340, b=250, tw=9, t1=14),
-    "HN350x175": dict(h=350, b=175, tw=7, t1=11),
-    "HM300x200": dict(h=294, b=200, tw=8, t1=12),
-    "HN300x150": dict(h=298, b=149, tw=5.5, t1=8),
-    "HW250x250": dict(h=250, b=250, tw=9, t1=14),
-    "HW200x200": dict(h=200, b=200, tw=8, t1=12),
-    "HN200x100": dict(h=198, b=99, tw=4.5, t1=7),
-    "HW150x150": dict(h=150, b=150, tw=7, t1=10),
-    "I40a": dict(h=400, b=142, tw=10.5, t1=16.5),
-    "I36a": dict(h=360, b=136, tw=10, t1=15.8),
-    "I32a": dict(h=320, b=130, tw=9.5, t1=15),
-    "I28a": dict(h=280, b=122, tw=8.5, t1=13.7),
-}
-
-
-def _compute_section(props: dict) -> dict:
-    """由 h,b,tw,t1 计算 H 型钢截面几何特性（略去圆角，工程近似足够）"""
-    h = props["h"]
-    b = props["b"]
-    tw = props["tw"]
-    t1 = props["t1"]
-    hw = h - 2 * t1                      # 腹板净高
-    A = 2 * b * t1 + hw * tw
-    # 自身惯性矩
-    I_f = 2 * (b * t1 ** 3 / 12 + b * t1 * ((h - t1) / 2) ** 2)
-    I_w = tw * hw ** 3 / 12
-    Ix = I_f + I_w
-    Iy = 2 * (t1 * b ** 3 / 12) + hw * tw ** 3 / 12
-    ix = math.sqrt(Ix / A)
-    iy = math.sqrt(Iy / A)
-    y = h / 2
-    Wx = Ix / y
-    Wy = Iy / (b / 2)
-    # 中和轴处剪应力用的面积矩（腹板+上翼缘半）——近似用于抗剪验算
-    Sx = b * t1 * (h - t1) / 2 + tw * (hw / 2) * (hw / 4)
-    return {
-        "A": A, "Ix": Ix, "Wx": Wx, "ix": ix,
-        "Iy": Iy, "Wy": Wy, "iy": iy, "Sx": Sx, "h0": hw, "tw": tw,
-        "b": b, "t1": t1, "h": h,
-    }
-
-
 def _get_section(name: str) -> Optional[dict]:
-    """按截面名取截面特性，支持 'H:400x300x10x16' 直接几何格式"""
-    if name in SECTION_DB:
-        return _compute_section(SECTION_DB[name])
-    # 支持 H: hxbxtwxt1 格式
-    if ":" in name:
-        part = name.split(":", 1)[1]
-        vals = [float(x) for x in part.replace("x", "*").split("*")]
-        if len(vals) == 4:
-            return _compute_section(dict(h=vals[0], b=vals[1], tw=vals[2], t1=vals[3]))
-    return None
+    """Resolve only catalogued H-sections; all structural tools share this catalog."""
+    return section_properties(name)
+
+
+@tool
+def query_steel_sections(payload: str) -> str:
+    """按型号/尺寸筛选本地 GB/T 11263-2024 H型钢库，返回型号和表列截面属性。"""
+    try:
+        data = json.loads(payload) if isinstance(payload, str) else dict(payload)
+        query = str(data.get("query") or data.get("q") or "")
+        rows = search_sections(query, series=data.get("series") or "H",
+                               min_height_mm=data.get("min_height_mm"),
+                               max_height_mm=data.get("max_height_mm"),
+                               min_area_cm2=data.get("min_area_cm2"),
+                               max_area_cm2=data.get("max_area_cm2"),
+                               top_k=data.get("top_k", data.get("limit", 30)))
+        return json.dumps({"ok": True, "source": catalog_info(),
+                           "count": len(rows), "sections": rows}, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False)
 
 
 def _b_class_phi(lam, fy, E=206000.0):
@@ -281,8 +252,9 @@ def check_steel_member(payload: str) -> str:
 
     sec = _get_section(section_name)
     if sec is None:
-        return (f"未找到截面 {section_name}，可用截面：{list(SECTION_DB.keys())}，"
-                f"或使用格式 H:高度x翼缘宽x腹板厚x翼缘厚（如 H400x300x10x16）")
+        return (f"未找到截面 {section_name}。本工具只接受本地 GB/T 11263-2024 附录A表A.1"
+                "中的 H 型钢型号；请从 /sections 查询截面库，不能用自定义尺寸替代。")
+    section_name = sec["name"]
 
     fy, f, fv = MATERIALS[steel]
     span = float(d.get("span_m", 8))

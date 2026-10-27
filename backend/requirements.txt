@@ -11,3 +11,4 @@ ezdxf>=1.4,<2
 matplotlib>=3.9,<4
 pypdfium2>=4.30,<6
 pypdf>=5,<7
+pypdf>=5,<7

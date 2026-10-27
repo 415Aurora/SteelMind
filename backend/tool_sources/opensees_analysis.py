@@ -69,19 +69,19 @@ def _resolve_section(data, role):
     section_data = (data.get("sections") or {}).get(role, {})
     section_data = section_data if isinstance(section_data, dict) else {}
     name = data.get(f"{role}_section") or section_data.get("name") or section_data.get("section")
-    props = data.get(f"{role}_properties") or section_data
     sec = _get_section(name) if name else None
-    if name and sec is None and not props:
-        raise ValueError(f"无法识别{role}截面 {name!r}；请提供 {role}_properties 的 A_mm2 和 Iz_mm4")
-    A = float(props.get("A_mm2", sec["A"] if sec else data.get(f"{role}_A", 8000 if role == "beam" else 9000)))
-    legacy_I = data.get(f"{role}_I")
-    fallback_I = (float(legacy_I) * 1.0e4 if legacy_I is not None else (1.9e6 if role == "beam" else 1.06e6))
-    Iz = float(props.get("Iz_mm4", props.get("Ix_mm4", sec["Ix"] if sec else fallback_I)))
-    if "Iz_cm4" in props:
-        Iz = float(props["Iz_cm4"]) * 1.0e4
+    if not name:
+        raise ValueError(f"{role}必须填写本地截面库中的型号；请通过 /sections 查询 H 型钢库")
+    if sec is None:
+        raise ValueError(f"无法识别{role}截面 {name!r}；请从本地 GB/T 11263-2024 H 型钢库中选择型号")
+    # Never let ad-hoc properties override the catalog values used by OpenSees.
+    A = float(sec["A"])
+    Iz = float(sec["Ix"])
     if not math.isfinite(A) or not math.isfinite(Iz) or A <= 0 or Iz <= 0:
         raise ValueError(f"{role}截面面积 A 和惯性矩 Iz 必须为有限正数")
-    return {"name": name or "custom", "A_mm2": A, "Iz_mm4": Iz}
+    return {"name": sec["name"], "designation": sec["designation"],
+            "A_mm2": A, "Iz_mm4": Iz, "Iy_mm4": float(sec["Iy"]),
+            "catalog_standard": sec["catalog_standard"], "catalog_id": sec["catalog_id"]}
 
 
 def _normalize(raw):

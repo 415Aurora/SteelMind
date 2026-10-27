@@ -87,6 +87,7 @@ def build_drawing_bundle(report: dict[str, Any]) -> dict[str, Any]:
         props = _get_section(section_name)
         if not member_id or not section_name or props is None:
             raise ValueError(f"构件 {member_id or index} 的截面 {section_name!r} 缺少可追溯的 H/I 几何；当前导出器不猜测自定义截面尺寸")
+        section_name = props["name"]
         section_id = section_ids.setdefault(section_name, "SEC_" + re.sub(r"[^A-Za-z0-9_-]+", "_", section_name).strip("_"))
         if section_name not in section_records:
             h, b, tw, tf = (_finite(props[key], f"{section_name}.{key}") for key in ("h", "b", "tw", "t1"))
@@ -96,8 +97,8 @@ def build_drawing_bundle(report: dict[str, Any]) -> dict[str, Any]:
                 "id": section_id, "name": section_name, "shape": "I" if section_name.upper().startswith("I") else "H",
                 "h_mm": h, "b_mm": b, "tw_mm": tw, "tf_mm": tf, "A_mm2": area,
                 "Ix_mm4": ix, "Iy_mm4": iy, "Wx_mm3": _finite(props["Wx"], f"{section_name}.Wx"),
-                "Wy_mm3": _finite(props["Wy"], f"{section_name}.Wy"), "property_basis": "idealized",
-                "source": "SteelMind structural_calc._get_section；几何属性为工具内置理想化截面表/矩形分解，不含轧制圆角。",
+                "Wy_mm3": _finite(props["Wy"], f"{section_name}.Wy"), "property_basis": "catalog",
+                "source": f"{props['catalog_standard']} {props['catalog_table']}；截面特性采用表列值，r={props['root_radius_mm']} mm。",
             }
         node_i, node_j = str(member.get("node_i") or ""), str(member.get("node_j") or "")
         if node_i not in node_lookup or node_j not in node_lookup:

@@ -19,6 +19,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from section_catalog import catalog_info, search_sections
 
 SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", str(Path(__file__).resolve().parent / "tool_sources"))).expanduser().resolve()
 ARTIFACT_DIR = Path(os.getenv("STEEL_ARTIFACT_DIR", str(Path(__file__).parent / "artifacts"))).resolve()
@@ -44,6 +45,7 @@ TOOL_SPECS = {
     "validate_steel_frame_parameters": ("structural_calc.py", "validate_steel_frame_parameters", "校验钢框架几何、荷载、材料与初选截面参数"),
     "query_region_params": ("__knowledge__", "query_region_params", "从本地规范 RAG 检索地区参数候选依据（需核验）"),
     "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
+    "query_steel_sections": ("structural_calc.py", "query_steel_sections", "检索本地 GB/T 11263-2024 H 型钢截面库并返回可用于设计的截面特性"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
     "optimize_steel_truss_members": ("structural_calc.py", "optimize_steel_truss_members", "兼容旧版：对 ANSYS 导出的钢网架杆件结果逐根筛查；钢框架迭代请用 /workflow/section-iteration/run-stream"),
@@ -279,6 +281,27 @@ def health() -> dict[str, Any]:
 @app.get("/tools")
 def list_tools() -> list[dict[str, Any]]:
     return _tool_status()
+
+
+@app.get("/sections")
+def list_steel_sections(q: str = "", series: str | None = None,
+                        min_height_mm: float | None = None, max_height_mm: float | None = None,
+                        min_area_cm2: float | None = None, max_area_cm2: float | None = None,
+                        limit: int = 500) -> dict[str, Any]:
+    """Search the local H-section catalog shared by design, analysis and drawing tools."""
+    sections = search_sections(q, series=series, min_height_mm=min_height_mm,
+                               max_height_mm=max_height_mm, min_area_cm2=min_area_cm2,
+                               max_area_cm2=max_area_cm2, top_k=limit)
+    return {"ok": True, "catalog": catalog_info(), "count": len(sections), "sections": sections}
+
+
+@app.get("/sections/{section_id}")
+def get_steel_section(section_id: str) -> dict[str, Any]:
+    from section_catalog import section_record
+    result = section_record(section_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"截面 {section_id!r} 不在本地型钢库中")
+    return {"ok": True, "catalog": catalog_info(), "section": result}
 
 
 @app.get("/knowledge/bases")

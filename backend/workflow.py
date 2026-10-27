@@ -436,6 +436,7 @@ def run_workflow(request: dict[str, Any]) -> dict[str, Any]:
 
 def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
     req = state["request"]
+    from section_catalog import section_record
     geometry, loads = req.get("geometry") or {}, req.get("loads") or {}
     sections, candidates = req.get("model_sections") or {}, req.get("candidate_sections") or {}
     missing = [key for key in ("bays", "stories") if geometry.get(key) in (None, "")]
@@ -452,11 +453,22 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
         values = candidates.get(role)
         if not initial or not isinstance(values, list) or not values:
             return {"status": "needs_input", "errors": [f"请提供 model_sections.{role}_section 和 candidate_sections.{role}（按截面由小到大）"]}
-        names = [str(item).strip() for item in values if str(item).strip()]
-        if initial not in names:
+        candidate_pairs = [(str(value).strip(), section_record(str(value).strip()))
+                           for value in values if str(value).strip()]
+        resolved = [item for _, item in candidate_pairs]
+        if any(item is None for item in resolved):
+            unknown = [value for value, item in candidate_pairs if item is None]
+            return {"status": "needs_input", "errors": [f"{role}候选包含不在本地 GB/T 11263-2024 截面库中的型号：{', '.join(unknown[:8])}"]}
+        initial_record = section_record(str(initial))
+        if not initial_record:
+            return {"status": "needs_input", "errors": [f"{role}初始截面 {initial} 不在本地 GB/T 11263-2024 截面库中"]}
+        unique = {item["id"]: item for item in resolved if item}
+        names = [row["id"] for row in sorted(unique.values(), key=lambda item: (item["area_mm2"], item["id"]))]
+        initial_id = initial_record["id"]
+        if initial_id not in names:
             return {"status": "needs_input", "errors": [f"{role}初始截面 {initial} 必须包含在 candidate_sections.{role} 中"]}
-        if names != values:
-            candidates[role] = names
+        candidates[role] = names
+        sections[f"{role}_section"] = initial_id
     try:
         max_iterations = int(req.get("max_iterations", 8))
         if not 1 <= max_iterations <= 20:
@@ -466,7 +478,7 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("target_utilization 必须在 0.60 到 0.90 之间")
     except (TypeError, ValueError) as exc:
         return {"status": "needs_input", "errors": [str(exc)]}
-    return {"status": "running", "request": {**req, "max_iterations": max_iterations,
+    return {"status": "running", "request": {**req, "model_sections": sections, "candidate_sections": candidates, "max_iterations": max_iterations,
                                                   "target_utilization": target_utilization},
             "section_map": dict(req.get("initial_member_sections") or {}), "iteration_history": [], "errors": []}
 
@@ -654,6 +666,7 @@ def run_section_iteration(request: dict[str, Any]) -> dict[str, Any]:
 def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
     req = request
     from app import TOOLS
+    from section_catalog import section_record
     raw = _tool_text("validate_steel_frame_parameters", req)
     validation = json.loads(raw)
     if not validation.get("ok"):
@@ -694,6 +707,10 @@ def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
             continue
         results = []
         for candidate in candidates:
+            catalog_row = section_record(str(candidate))
+            if not catalog_row:
+                continue
+            candidate = catalog_row["id"]
             check_payload = {
                 "member_id": member.get("member_id"), "member_type": role, "section": candidate,
                 "steel": material.get("steel_grade", "Q355"), "span_m": member.get("span_m"),
