@@ -29,12 +29,13 @@
       <h2 class="module-heading"><span class="module-index">01</span>大模型参数与 API 配置</h2>
       <div class="section-title">Design workspace</div>
       <div class="project"><b>教学楼钢框架 · 初步设计</b><span>项目状态：方案探索</span></div>
-      <div class="section-title">DeepSeek 模型连接</div>
-      <div class="field"><label>API Base URL</label><input id="baseUrl" value="https://api.deepseek.com" /></div>
-      <div class="field"><label>模型名称</label><input id="model" value="deepseek-flash" /></div>
-      <div class="field"><label>DeepSeek API Key（仅本次页面使用，不保存）</label><input id="token" type="password" placeholder="粘贴你的 DeepSeek API Key" autocomplete="new-password" /></div>
-      <div class="hint">请求将从浏览器直接发送到 DeepSeek；请勿把 API Key 分享给他人。</div>
-      <button class="btn primary" id="saveConfig">保存连接配置</button>
+      <div class="section-title">OpenAI 兼容模型服务</div>
+      <div class="field"><label for="provider">API 服务商</label><select id="provider"><option value="tongji" selected>同济大学人工智能服务平台</option><option value="deepseek">DeepSeek</option><option value="custom">自定义 OpenAI 兼容服务</option></select></div>
+      <div class="field"><label for="baseUrl">API Base URL</label><input id="baseUrl" value="https://agi.tongji.edu.cn/v1" autocomplete="url" /></div>
+      <div class="field"><label for="model">Model_ID（模型标识）</label><input id="model" list="modelOptions" value="" placeholder="先获取列表，或粘贴平台显示的精确 Model_ID" autocomplete="off" /><datalist id="modelOptions"></datalist><button class="btn ghost" id="loadModels" type="button">从此 API 获取可用模型</button><div class="hint" id="modelListStatus">同济平台的 Model_ID 请以「我的 APIKey / 个人套餐」页面或接口返回值为准。</div></div>
+      <div class="field"><label for="token">API Key（仅本次页面使用，不保存）</label><input id="token" type="password" placeholder="粘贴所选服务商创建的 API Key" autocomplete="new-password" /></div>
+      <div class="hint">聊天与模型列表请求均从浏览器直接发送到所选服务商；API Key 不会保存。该同济 TokenPlan 接口仅限校园网访问，校外请连接 VPN。</div>
+      <button class="btn primary" id="saveConfig">保存 API 配置</button>
       <button class="btn ghost" id="demoBtn">运行无 Token 演示</button>
       <details class="prompt-settings">
         <summary>系统提示词（查看与修改）</summary>
@@ -353,5 +354,56 @@ runOutputsButton.onclick=async function(event){
   if(window.lastIterationReport?.construction_drawing_preflight?.valid!==true){$('#outputsStatus').textContent='DesignBundle输入预检未通过，暂不生成文件';return}
   return runOutputsHandler.call(this,event);
 };
+</script>
+<script>
+// Provider-aware model setup. The Tongji endpoint is OpenAI-compatible, but its
+// Model_ID is account-specific; never carry the old DeepSeek model name forward.
+(()=>{
+  const tongjiBase='https://agi.tongji.edu.cn/v1',deepseekBase='https://api.deepseek.com';
+  const provider=$('#provider'),base=$('#baseUrl'),model=$('#model'),token=$('#token'),status=$('#modelListStatus');
+  const savedProvider=sessionStorage.getItem('llmProvider');
+  if(savedProvider){provider.value=savedProvider;base.value=sessionStorage.getItem('llmBaseUrl')|| (savedProvider==='tongji'?tongjiBase:deepseekBase);model.value=sessionStorage.getItem('llmModel')||''}
+  else{provider.value='tongji';base.value=tongjiBase;model.value=''}
+  provider.addEventListener('change',()=>{
+    if(provider.value==='tongji'){base.value=tongjiBase;model.value='';status.textContent='同济平台 Model_ID 请从账号页面或「获取可用模型」读取。'}
+    else if(provider.value==='deepseek'){base.value=deepseekBase;model.value='';status.textContent='请获取模型列表，或粘贴 DeepSeek 账号可用的精确模型 ID。'}
+    else{status.textContent='填写服务商提供的兼容 API 根地址和精确模型 ID。'}
+  });
+  base.addEventListener('input',()=>{if(base.value.trim().replace(/\/$/,'')===tongjiBase)provider.value='tongji';else if(base.value.trim().replace(/\/$/,'')===deepseekBase)provider.value='deepseek';else provider.value='custom'});
+  $('#saveConfig').onclick=()=>{
+    sessionStorage.setItem('llmProvider',provider.value);sessionStorage.setItem('llmBaseUrl',base.value.trim());sessionStorage.setItem('llmModel',model.value.trim());
+    $('#statusText').textContent='API 服务商、Base URL 与 Model_ID 已保存到当前会话（API Key 不保存）';$('#statusDot').style.background='#58d6bb';
+  };
+  $('#loadModels').onclick=async()=>{
+    const endpoint=base.value.trim().replace(/\/$/,'');
+    if(!endpoint){status.textContent='请先填写 API Base URL。';return}
+    if(!token.value.trim()){status.textContent='请先粘贴该服务商的 API Key。';return}
+    const button=$('#loadModels');button.disabled=true;status.textContent='正在读取该账号可用的 Model_ID…';
+    try{
+      const response=await window.fetch(endpoint+'/models',{method:'GET',headers:{'Authorization':'Bearer '+token.value.trim(),'Accept':'application/json'}});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error?.message||data.detail||`HTTP ${response.status}`);
+      const rows=Array.isArray(data.data)?data.data:Array.isArray(data.models)?data.models:[];
+      const ids=[...new Set(rows.map(item=>typeof item==='string'?item:item?.id||item?.name).filter(Boolean).map(String))];
+      if(!ids.length)throw new Error('接口没有返回可识别的模型 ID；请到平台「我的 APIKey / 个人套餐」页面复制 Model_ID。');
+      const list=$('#modelOptions');list.replaceChildren(...ids.map(id=>{const option=document.createElement('option');option.value=id;return option}));
+      if(!model.value.trim()&&ids.length===1)model.value=ids[0];
+      status.textContent=`已读取 ${ids.length} 个模型 ID；点击模型框并选择，或粘贴账号页中的精确 ID。`;
+    }catch(error){
+      status.textContent=error.message.includes('403')?'平台返回 HTTP 403：按使用指南检查是否已连接校园网或 VPN，并确认账号有 API 权限。':error.message.includes('Failed to fetch')||error instanceof TypeError?'浏览器无法访问模型列表：检查校园网/VPN、服务商 CORS 和 Base URL；也可从账号页面复制 Model_ID。':'读取模型列表失败：'+error.message;
+    }finally{button.disabled=false}
+  };
+  const originalFetch=window.fetch.bind(window);
+  window.fetch=(input,init={})=>{
+    const url=typeof input==='string'?input:input?.url||'';
+    if(url.includes('/chat/completions')){
+      const chosen=model.value.trim();
+      if(!chosen)return Promise.reject(new Error('请填写同济平台账号实际提供的 Model_ID；不能沿用 deepseek-flash。'));
+      let body;try{body=JSON.parse(init.body||'{}')}catch{return Promise.reject(new Error('模型请求数据格式错误。'))}
+      body.model=chosen;init={...init,body:JSON.stringify(body)};
+    }
+    return originalFetch(input,init);
+  };
+})();
 </script>
 </body></html>
