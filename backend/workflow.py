@@ -767,7 +767,7 @@ def _engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "status": parsed.get("status", "generation_failed"),
                 "errors": [parsed.get("error", "图纸成果生成失败")], "preflight": parsed.get("preflight")}
     return {"ok": True, "status": parsed.get("generation_status", "completed"),
-            "preflight": parsed.get("preflight"), "artifacts": {"engineering_package": generated}}
+            "preflight": parsed.get("preflight"), "artifacts": {"engineering_package": parsed}}
 
 
 ENGINEERING_OUTPUT_WORKFLOW = RunnableLambda(_engineering_outputs)
