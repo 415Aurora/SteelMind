@@ -1,4 +1,4 @@
-# SteelMind 钢结构智能设计助手
+# Ultra Steel Agent（SteelMind 钢结构智能设计助手）
 
 这是一个可通过网页访问的初版智能体前端。当前版本采用静态 HTML/JavaScript，支持 OpenAI-compatible `POST /chat/completions` 接口。
 
