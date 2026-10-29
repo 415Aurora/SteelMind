@@ -1,0 +1,95 @@
+{
+  "status": "PASS",
+  "checks": {
+    "document_ids_unique": true,
+    "chunk_ids_unique": true,
+    "required_fields_present": true,
+    "sqlite_integrity_ok": true,
+    "sqlite_count_matches_jsonl": true,
+    "fts_q355_has_results": true,
+    "search_returns_gb50017": true,
+    "clause_lookup_returns_8_2_1": true,
+    "material_lookup_q355_ok": true,
+    "section_lookup_hn400_ok": true
+  },
+  "documents": 1518,
+  "chunks": 1978,
+  "standards": 14,
+  "source_methods": {
+    "html_text_image_ocr": 65,
+    "pdf_ocr": 443,
+    "pdf_text": 1010
+  },
+  "ocr_pages": 443,
+  "ocr_scored_pages": 437,
+  "ocr_confidence_average": 0.9597,
+  "ocr_confidence_min": 0.6477,
+  "short_text_records": [
+    {
+      "standard_id": "GB-T11263-2024",
+      "page_no": 2,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T11263-2024",
+      "page_no": 4,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T11263-2024",
+      "page_no": 6,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T11263-2024",
+      "page_no": 51,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T1591-2018",
+      "page_no": 4,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T700-2006",
+      "page_no": 2,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T700-2006",
+      "page_no": 4,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB-T700-2006",
+      "page_no": 11,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB50017-2017",
+      "page_no": 244,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB50017-2017",
+      "page_no": 259,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB55001-2021",
+      "page_no": 10,
+      "section_no": null
+    },
+    {
+      "standard_id": "GB55001-2021",
+      "page_no": 38,
+      "section_no": null
+    }
+  ],
+  "smoke_tests": {
+    "search_top_standard": "GB50017-2017",
+    "clause_top_page": 86,
+    "material_f_mpa": 305,
+    "section_Ix_cm4": "23500"
+  }
+}

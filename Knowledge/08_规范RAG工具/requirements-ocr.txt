@@ -1,0 +1,5 @@
+pypdf>=6.0
+pdfplumber>=0.11
+rapidocr-onnxruntime>=1.4.4
+Pillow>=10.0
+lxml>=5.0

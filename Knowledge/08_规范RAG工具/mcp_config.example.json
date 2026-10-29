@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "steelmind-standards": {
+      "command": "D:/python/python.exe",
+      "args": [
+        "D:/Documents/ChatGPT/作业/智能建造施工解决方案/08_规范RAG工具/mcp_server.py"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}

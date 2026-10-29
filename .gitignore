@@ -226,5 +226,7 @@ dist/*.inspect.ndjson
 *.tar.gz
 backend/__pycache__/
 **/__pycache__/
-Knowledge/
+Knowledge/*
+!Knowledge/07_机器可读规范库/
+!Knowledge/08_规范RAG工具/
 智能建造施工解决方案.zip

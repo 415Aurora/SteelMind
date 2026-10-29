@@ -1,0 +1,40 @@
+{
+  "search_standards": {
+    "description": "混合检索钢结构和荷载规范条款",
+    "inputs": {
+      "query": "string",
+      "top_k": "integer, default 5",
+      "standard_id": "optional string"
+    }
+  },
+  "get_clause": {
+    "description": "按标准号和条款号读取条款",
+    "inputs": {
+      "standard_id": "string",
+      "clause_no": "string"
+    }
+  },
+  "lookup_material": {
+    "description": "按钢材牌号和厚度查询设计强度",
+    "inputs": {
+      "grade": "string",
+      "thickness_mm": "number"
+    }
+  },
+  "lookup_section": {
+    "description": "按截面编号查询H型钢参数",
+    "inputs": {
+      "section_id": "string"
+    }
+  },
+  "get_chunk": {
+    "description": "按文本块ID读取完整内容",
+    "inputs": {
+      "chunk_id": "string"
+    }
+  },
+  "list_standards": {
+    "description": "列出知识库标准",
+    "inputs": {}
+  }
+}

@@ -44,9 +44,9 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 | `../Knowledge/08_规范RAG工具/langchain_tools.py` | 将 RAG 检索接口封装成 LangChain 工具 |
 | `../Knowledge/08_规范RAG工具/build_index.py`、`build_file_index.py`、`build_corpus.py`、`merge_corpus.py`、`verify_corpus.py` | 构建规范语料、文件索引、合并与校验；属于离线知识库维护工具，不是每次请求都运行 |
 | `../Knowledge/08_规范RAG工具/fastapi_router.py`、`http_server.py`、`mcp_server.py` | RAG 的可选 FastAPI 路由、独立 HTTP 和 MCP 入口；SteelMind 当前通过 `knowledge_tools.py` 直接调用检索引擎，不需启动独立 RAG 服务 |
-| `../Knowledge/07_机器可读规范库/` | RAG 使用的规范 Markdown、结构化记录和 `standards.db` 索引数据；目录被 Git 忽略，需在本地保留/配置知识库数据 |
+| `../Knowledge/07_机器可读规范库/` | RAG 使用的规范 Markdown、结构化记录和 `standards.db` 索引数据；随项目提交，克隆后可直接供本地网关检索 |
 
-历史工具原件仍保留在 `C:\Users\Administrator\Downloads`，运行服务默认不再依赖该目录。若需临时加载另一份工具源码，可设置 `STEEL_TOOL_SOURCE` 为包含工具 `.py` 文件的目录。`Knowledge/` 下的规范及 RAG 源码此前已位于本项目目录，但按本地知识资产策略在 `.gitignore` 中忽略；复制项目到其他电脑时应单独迁移这些目录和索引数据。
+历史工具原件仍保留在 `C:\Users\Administrator\Downloads`，运行服务默认不再依赖该目录。若需临时加载另一份工具源码，可设置 `STEEL_TOOL_SOURCE` 为包含工具 `.py` 文件的目录。`Knowledge/07_机器可读规范库/` 与 `Knowledge/08_规范RAG工具/` 随本项目提交；原始规范资料 `Knowledge/01_规范与基础数据/` 仍按本地资料规则忽略。截面库 JSON 已随源码提交，若要从标准 PDF 重建它，需要另行准备对应 PDF。
 
 ## 工作流2 → DesignBundle → 工程成果包
 
@@ -72,7 +72,7 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 - `draw_steel_section` 根据本地截面库返回尺寸、表列面积/惯性矩、来源与轧制圆角；框架查看器读取同一记录并按截面尺寸绘图，点击构件后展示截面与验算数据。当前图形用 h/b/tw/tf 表示 H 形轮廓，r 作为截面库标注值；不会把示意轮廓声明为制造详图。
 - 旧版网架筛选：`/invoke/optimize_steel_truss_members` 暂保留为兼容接口，仅供 ANSYS 后处理导出的钢网架杆件 JSON 使用；不读取 `.rst/.db`。新项目钢框架不要调用此单项网架工具，使用下述“截面迭代与优化”工作流。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
-- 规范 RAG：`/knowledge/bases` 返回 07 索引的目录与规范清单；网页可多选来源目录，`source_dirs` 会贯通 `/knowledge/search`、单项工具和 LCEL 地区查询，并与可选的 `standard_ids` 进一步取交集。`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。`Knowledge/` 为本地知识库目录，已加入 Git 忽略规则，网页部署包不会包含规范原文和数据库。
+- 规范 RAG：`/knowledge/bases` 返回 07 索引的目录与规范清单；网页可多选来源目录，`source_dirs` 会贯通 `/knowledge/search`、单项工具和 LCEL 地区查询，并与可选的 `standard_ids` 进一步取交集。`/invoke/search_steel_standards` 和 `query_region_params` 可由网页及工作流调用。地区查询返回候选原文片段，不自动将其解释为地区参数值；版本、表号、重现期、场地和地方适用条件须人工核对。规范 RAG 数据与代码在 GitHub 源码仓库中；线上静态网页部署包只含 `dist/`，访问者仍需连接已运行的工具网关。
 - 计算书、设计文件：默认生成文件保存在 `backend/artifacts/`，返回 `/files/...` 下载链接；如需 Coze S3，请完整配置下面的 S3/identity 变量。`STEEL_TOOL_PUBLIC_URL` 应设置为浏览器能访问到的网关根地址（本机默认 `http://127.0.0.1:8000`）。
 
 ### 本地截面库
