@@ -27,6 +27,5 @@ if [[ ! -x "$PYTHON" ]]; then
   "$PYTHON" -m pip install -r "$SCRIPT_DIR/backend/requirements.txt"
 fi
 
-echo "Starting SteelMind tool gateway at http://127.0.0.1:8000"
-echo "Health check: http://127.0.0.1:8000/health"
-exec "$PYTHON" -m uvicorn app:app --app-dir "$SCRIPT_DIR/backend" --host 127.0.0.1 --port 8000
+echo "Starting SteelMind tool gateway; the agent page opens after the service is ready."
+exec "$PYTHON" "$SCRIPT_DIR/start_tool_gateway.py"

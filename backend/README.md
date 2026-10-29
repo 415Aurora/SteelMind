@@ -4,20 +4,20 @@ FastAPI 网关默认从仓库内 `backend/tool_sources/` 加载结构工具；�
 
 ## 启动
 
-Windows 可双击项目根目录的 `start_tool_gateway.bat` 启动本地服务（使用项目 `.venv`）。服务窗口需要保持运行；关闭窗口会停止网关。首次使用或升级依赖时，运行：
+Windows 可双击项目根目录的 `start_tool_gateway.bat` 启动本地服务（使用项目 `.venv`）。启动器会等待 `/health` 检查通过后自动打开 Agent 页面；服务窗口需要保持运行，关闭窗口会停止网关。若已存在健康的 SteelMind 网关，启动器会复用并打开页面，不会重复绑定端口。首次使用或升级依赖时，运行：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 ```
 
-Linux/macOS 使用项目根目录的 `start_tool_gateway.sh`。首次启动时，脚本会创建 `.venv` 并安装后端依赖；之后直接运行脚本即可。推荐安装 Python 3.12。若 Python 不在默认路径，可通过 `STEELMIND_PYTHON` 指定解释器；也可通过 `STEELMIND_VENV` 指定虚拟环境目录。
+Linux/macOS 使用项目根目录的 `start_tool_gateway.sh`。首次启动时，脚本会创建 `.venv` 并安装后端依赖；之后直接运行脚本即可。网关就绪后会自动打开 Agent 页面。推荐安装 Python 3.12。若 Python 不在默认路径，可通过 `STEELMIND_PYTHON` 指定解释器；也可通过 `STEELMIND_VENV` 指定虚拟环境目录。
 
 ```bash
 chmod +x start_tool_gateway.sh
 ./start_tool_gateway.sh
 ```
 
-服务启动后访问 `http://127.0.0.1:8000/health` 检查状态。PDF 导出还需要安装 LibreOffice；中文 PDF 需要安装 Noto Sans CJK SC 字体。
+启动器会在服务健康后打开 `http://127.0.0.1:8000/`。如需手动检查状态，可访问 `http://127.0.0.1:8000/health`。PDF 导出还需要安装 LibreOffice；中文 PDF 需要安装 Noto Sans CJK SC 字体。
 
 ### 使用 Anaconda/Miniconda 自动部署环境
 

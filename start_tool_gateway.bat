@@ -13,6 +13,6 @@ if not exist "%STEELMIND_PYTHON%" (
 
 cd /d "%STEELMIND_ROOT%"
 echo Starting SteelMind local tool gateway at http://127.0.0.1:8000
-echo After startup, open that URL with /health in a browser.
-"%STEELMIND_PYTHON%" -m uvicorn app:app --app-dir "%STEELMIND_ROOT%backend" --host 127.0.0.1 --port 8000
+echo The agent page will open automatically after the gateway is ready.
+"%STEELMIND_PYTHON%" "%STEELMIND_ROOT%start_tool_gateway.py"
 pause

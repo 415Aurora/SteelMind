@@ -19,6 +19,5 @@ fi
 echo "Installing/updating SteelMind backend dependencies..."
 conda run -n "$ENV_NAME" python -m pip install --disable-pip-version-check -r "$SCRIPT_DIR/backend/requirements.txt"
 
-echo "Starting SteelMind gateway at http://127.0.0.1:8000"
-echo "Health check: http://127.0.0.1:8000/health"
-conda run --no-capture-output -n "$ENV_NAME" python -m uvicorn app:app --app-dir "$SCRIPT_DIR/backend" --host 127.0.0.1 --port 8000
+echo "Starting SteelMind gateway; the agent page opens after the service is ready."
+conda run --no-capture-output -n "$ENV_NAME" python "$SCRIPT_DIR/start_tool_gateway.py"

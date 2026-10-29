@@ -23,8 +23,8 @@ conda run -n "%STEELMIND_CONDA_ENV%" python -m pip install --disable-pip-version
 if errorlevel 1 goto failed
 
 echo Starting SteelMind gateway at http://127.0.0.1:8000
-echo Health check: http://127.0.0.1:8000/health
-conda run --no-capture-output -n "%STEELMIND_CONDA_ENV%" python -m uvicorn app:app --app-dir "%STEELMIND_ROOT%backend" --host 127.0.0.1 --port 8000
+echo The agent page will open automatically after the gateway is ready.
+conda run --no-capture-output -n "%STEELMIND_CONDA_ENV%" python "%STEELMIND_ROOT%start_tool_gateway.py"
 if errorlevel 1 goto failed
 exit /b 0
 
