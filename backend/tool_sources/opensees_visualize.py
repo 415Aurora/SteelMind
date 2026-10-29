@@ -119,14 +119,14 @@ def _section_shape(name):
 
 @tool
 def draw_steel_section(payload: str) -> str:
-    """根据本地 GB/T 11263-2024 H 型钢库中的型号返回实际尺寸与截面特性。"""
+    """根据本地合并截面库中的型号返回尺寸与截面特性；WH-前缀表示焊接Q235截面。"""
     try:
         data = json.loads(payload) if isinstance(payload, str) else dict(payload)
         name = data.get("section") or data.get("name") or ""
         shape = _section_shape(name)
         if not shape:
             return json.dumps({"ok": False, "section": name,
-                               "message": "该型号不在本地 GB/T 11263-2024 H 型钢库中；请选择库内截面，不接受自定义几何。"}, ensure_ascii=False)
+                               "message": "该型号不在本地合并截面库中；请选择热轧H型钢或WH-前缀焊接Q235截面，不接受自定义几何。"}, ensure_ascii=False)
         return json.dumps({"ok": True, "profile": "H", "units": "mm", "source": "GB/T 11263-2024 附录A 表A.1",
                            "shape": shape}, ensure_ascii=False)
     except Exception as exc:

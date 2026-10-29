@@ -46,7 +46,8 @@ TOOL_SPECS = {
     "validate_steel_frame_parameters": ("structural_calc.py", "validate_steel_frame_parameters", "校验钢框架几何、荷载、材料与初选截面参数"),
     "query_region_params": ("__knowledge__", "query_region_params", "从本地规范 RAG 检索地区参数候选依据（需核验）"),
     "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
-    "query_steel_sections": ("structural_calc.py", "query_steel_sections", "检索本地 GB/T 11263-2024 H 型钢截面库并返回可用于设计的截面特性"),
+    "query_steel_sections": ("structural_calc.py", "query_steel_sections", "检索本地热轧H型钢和Q235焊接H型截面库并返回截面特性"),
+    "optimize_q235_steel_sections": ("q235_section_optimizer.py", "optimize_q235_steel_sections", "依据Q235焊接截面库按OpenSees内力进行强度筛选与离散选截面；不替代完整稳定验算"),
     "calculate_load_combination": ("structural_calc.py", "calculate_load_combination", "按输入荷载生成组合设计值"),
     "check_steel_member": ("structural_calc.py", "check_steel_member", "进行钢结构梁柱截面验算"),
     "optimize_steel_truss_members": ("structural_calc.py", "optimize_steel_truss_members", "兼容旧版：对 ANSYS 导出的钢网架杆件结果逐根筛查；钢框架迭代请用 /workflow/section-iteration/run-stream"),
@@ -307,11 +308,11 @@ def list_tools() -> list[dict[str, Any]]:
 def list_steel_sections(q: str = "", series: str | None = None,
                         min_height_mm: float | None = None, max_height_mm: float | None = None,
                         min_area_cm2: float | None = None, max_area_cm2: float | None = None,
-                        limit: int = 500) -> dict[str, Any]:
-    """Search the local H-section catalog shared by design, analysis and drawing tools."""
+                        catalog_type: str | None = None, limit: int = 1000) -> dict[str, Any]:
+    """Search merged local hot-rolled and Q235 welded H-section catalogs."""
     sections = search_sections(q, series=series, min_height_mm=min_height_mm,
                                max_height_mm=max_height_mm, min_area_cm2=min_area_cm2,
-                               max_area_cm2=max_area_cm2, top_k=limit)
+                               max_area_cm2=max_area_cm2, catalog_type=catalog_type, top_k=limit)
     return {"ok": True, "catalog": catalog_info(), "count": len(sections), "sections": sections}
 
 

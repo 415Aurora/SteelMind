@@ -458,10 +458,10 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
         resolved = [item for _, item in candidate_pairs]
         if any(item is None for item in resolved):
             unknown = [value for value, item in candidate_pairs if item is None]
-            return {"status": "needs_input", "errors": [f"{role}候选包含不在本地 GB/T 11263-2024 截面库中的型号：{', '.join(unknown[:8])}"]}
+            return {"status": "needs_input", "errors": [f"{role}候选包含不在本地合并截面库中的型号：{', '.join(unknown[:8])}"]}
         initial_record = section_record(str(initial))
         if not initial_record:
-            return {"status": "needs_input", "errors": [f"{role}初始截面 {initial} 不在本地 GB/T 11263-2024 截面库中"]}
+            return {"status": "needs_input", "errors": [f"{role}初始截面 {initial} 不在本地合并截面库中"]}
         unique = {item["id"]: item for item in resolved if item}
         names = [row["id"] for row in sorted(unique.values(), key=lambda item: (item["area_mm2"], item["id"]))]
         initial_id = initial_record["id"]

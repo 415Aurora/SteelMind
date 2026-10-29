@@ -67,7 +67,7 @@ def validate_steel_frame_parameters(payload: str) -> str:
             if not initial or not isinstance(names, list) or not initial_record or initial_record["id"] not in candidate_ids:
                 errors.append(f"{role}初始截面需填写，且须包含在 candidate_sections.{role} 中")
             if initial and not initial_record:
-                errors.append(f"{role}初始截面 {initial} 不在本地 GB/T 11263-2024 H 型钢库中")
+                errors.append(f"{role}初始截面 {initial} 不在本地合并截面库中；请使用热轧截面 H-型号或焊接Q235截面 WH-型号")
             if isinstance(names, list):
                 unknown = [str(name) for name in names if not section_record(str(name))]
                 if unknown:
@@ -85,11 +85,11 @@ def _get_section(name: str) -> Optional[dict]:
 
 @tool
 def query_steel_sections(payload: str) -> str:
-    """按型号/尺寸筛选本地 GB/T 11263-2024 H型钢库，返回型号和表列截面属性。"""
+    """按型号/尺寸筛选本地热轧H型钢与Q235焊接H型截面库。series可用H或WH，catalog_type可用hot_rolled_h或welded_q235。"""
     try:
         data = json.loads(payload) if isinstance(payload, str) else dict(payload)
         query = str(data.get("query") or data.get("q") or "")
-        rows = search_sections(query, series=data.get("series") or "H",
+        rows = search_sections(query, series=data.get("series"), catalog_type=data.get("catalog_type"),
                                min_height_mm=data.get("min_height_mm"),
                                max_height_mm=data.get("max_height_mm"),
                                min_area_cm2=data.get("min_area_cm2"),

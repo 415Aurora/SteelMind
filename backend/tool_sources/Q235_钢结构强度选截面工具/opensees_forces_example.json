@@ -1,0 +1,17 @@
+{
+  "units": "N-mm-MPa",
+  "axes": "y=flange_width,z=section_height",
+  "members": [
+    {
+      "id": "beam_101",
+      "design_group": "G1",
+      "length_mm": 6000,
+      "current_section": "H200x100x4x6",
+      "forces": [
+        {"case": "ULS_1", "station": "I", "N": -20000, "My": 10000000, "Mz": 1000000, "Vy": 1000, "Vz": 12000, "T": 0},
+        {"case": "ULS_1", "station": "mid", "N": -20000, "My": 20000000, "Mz": 1000000, "Vy": 1000, "Vz": 0, "T": 0},
+        {"case": "ULS_1", "station": "J", "N": -20000, "My": -10000000, "Mz": 1000000, "Vy": 1000, "Vz": -12000, "T": 0}
+      ]
+    }
+  ]
+}

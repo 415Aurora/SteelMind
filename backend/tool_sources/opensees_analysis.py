@@ -73,7 +73,7 @@ def _resolve_section(data, role):
     if not name:
         raise ValueError(f"{role}必须填写本地截面库中的型号；请通过 /sections 查询 H 型钢库")
     if sec is None:
-        raise ValueError(f"无法识别{role}截面 {name!r}；请从本地 GB/T 11263-2024 H 型钢库中选择型号")
+        raise ValueError(f"无法识别{role}截面 {name!r}；请从本地合并截面库中选择型号（热轧H型钢或WH-前缀焊接Q235型钢）")
     # Never let ad-hoc properties override the catalog values used by OpenSees.
     A = float(sec["A"])
     Iz = float(sec["Ix"])

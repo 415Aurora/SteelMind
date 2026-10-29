@@ -46,7 +46,8 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 | `workflow.py` | LangChain LCEL 工作流编排：信息获取与截面初选、截面迭代优化、工程文件输出；记录步骤输入/输出 |
 | `knowledge_tools.py` | SteelMind 对本地规范 RAG 的适配：`search_steel_standards`、`query_region_params` |
 | `tool_sources/structural_calc.py` | `validate_steel_frame_parameters`、`query_steel_sections`、`calculate_load_combination`、`check_steel_member`；另有旧兼容工具 `optimize_steel_truss_members` |
-| `section_catalog.py`、`steel_sections.json` | 统一本地型钢截面数据与查找接口；当前收录 GB/T 11263-2024 附录A表A.1的 430 个热轧H型钢型号，设计、验算、OpenSees、优化和截面展示共用。`scripts/build_section_catalog.py` 从本地规范 PDF 重建 JSON |
+| `tool_sources/q235_section_optimizer.py`、`tool_sources/Q235_钢结构强度选截面工具/steel_section_optimizer.py` | `optimize_q235_steel_sections` Agent 适配器与原始离散选截面算法；可接收内力样本或本项目 OpenSees 的 `end_forces_local`，对311个Q235焊接截面作强度筛选 |
+| `section_catalog.py`、`steel_sections.json`、`tool_sources/截面库.csv` | 统一检索与设计属性接口：430个 GB/T 11263-2024 热轧H型钢 + 311个本地Q235焊接H型截面，共741个记录。热轧记录存 JSON，焊接数据运行时从CSV合并；焊接型号加 `WH-` 前缀，避免与4个同名但尺寸/特性不同的热轧记录混淆。`scripts/build_section_catalog.py` 从本地规范 PDF 重建热轧JSON核心库 |
 | `tool_sources/opensees_analysis.py` | `opensees_frame_verify`：参数化二维钢框架 OpenSeesPy 建模与静力分析；为成果导出返回实体节点、位移、支座反力、杆件节点关系和局部端力 |
 | `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：按 X/Z 双向跨数与跨度生成空间几何展示、构件验算着色和截面图形数据；当前 OpenSees 求解器仍为二维，不把面外几何当作计算结果 |
 | `tool_sources/generate_design_files.py` | `generate_calculation_book`、`generate_design_outputs`：生成计算书及 Excel/Word/DXF 文件 |
@@ -86,7 +87,8 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 ## 工具要求与输出
 
 - 参数校验、荷载组合、钢构件验算、OpenSeesPy 分析、截面绘制和成果生成：使用 LangChain 工具接口；工作流通过 LCEL 编排，分析后自动遍历 OpenSees 返回的物理构件列表。
-- 本地截面库 `/sections`、`/sections/{section_id}` 和 `query_steel_sections` 提供型号检索；输入可用规范型号（如 `H400x200x8x13`）或旧模板别名。初选与迭代会将型号归一到库内规范ID，未知型号拒绝进入计算。OpenSees 的面积和强轴惯性矩、构件验算属性及计算书/图纸导出统一读取同一个截面记录。
+- 本地截面库 `/sections`、`/sections/{section_id}` 和 `query_steel_sections` 提供合并检索；`catalog_type` 可设为 `hot_rolled_h` 或 `welded_q235`，`series` 可用 `H` 或 `WH`。热轧截面沿用原规范ID；焊接截面使用 `WH-H400x200x8x13` 形式的唯一ID。OpenSees、构件验算、绘图和成果导出读取同一截面记录。原始的同名未加前缀写法在发生冲突时仍指向原热轧截面。
+- 单项工具 `optimize_q235_steel_sections` 仅从Q235焊接候选库选截面，接收格式见工具目录中的示例 JSON；也可传 `opensees_result` 或完整分析对象自动展开二维单元端力。该算法输出固定内力下的强度初选，不做整体稳定、局部稳定、长细比、变形、连接与荷载组合，也不会自动重分析；要进入工作流2，需把建议截面纳入模型后重算，并完成其余验算。自动映射的二维结果将弱轴内力和扭矩置零，不能据此声称完整三维验算。
 - `draw_steel_section` 根据本地截面库返回尺寸、表列面积/惯性矩、来源与轧制圆角；框架查看器读取同一记录并按截面尺寸绘图，点击构件后展示截面与验算数据。当前图形用 h/b/tw/tf 表示 H 形轮廓，r 作为截面库标注值；不会把示意轮廓声明为制造详图。
 - 旧版网架筛选：`/invoke/optimize_steel_truss_members` 暂保留为兼容接口，仅供 ANSYS 后处理导出的钢网架杆件 JSON 使用；不读取 `.rst/.db`。新项目钢框架不要调用此单项网架工具，使用下述“截面迭代与优化”工作流。
 - OpenSeesPy 框架验证：需要当前启动网关的 Python 环境已安装 `openseespy`。
@@ -95,13 +97,15 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 
 ### 本地截面库
 
-当前库由用户本地提供的 GB/T 11263-2024 PDF 附录A表A.1提取，含 430 个热轧H型钢。规范号/尺寸/面积/惯性矩/截面模数/回转半径/理论重量保存在 `backend/steel_sections.json`，服务不依赖运行时网络或规范 PDF。查询可用 `GET /sections?limit=500`、`GET /sections/{型号}` 或工具 `query_steel_sections`；H400×200×8×13 推荐填写规范型号 `H400x200x8x13`，旧模板别名 `HN400x200` 会归一到同一记录。截面目录重建命令：
+现有库由 GB/T 11263-2024 附录A表A.1提取，含430个热轧H型钢；新增本地Q235焊接库含311个记录。两份 CSV 的311个型号、尺寸和主截面特性一致，嵌套工具目录内的版本另外含局部稳定筛选说明。热轧记录保存在 `backend/steel_sections.json`，焊接记录从 `backend/tool_sources/截面库.csv` 合并，无需联网或规范 PDF。两库有4个同名型号，但新旧尺寸和惯性矩不同，因此保持两个独立ID，焊接记录加 `WH-` 前缀。查询可用 `GET /sections?limit=1000`、`GET /sections?catalog_type=welded_q235`、`GET /sections/{型号}` 或 `query_steel_sections`；示例 `WH-H400x200x6x10`。
+
+截面目录重建命令（只重建热轧 JSON 核心库；服务启动后会再合并焊接 CSV）：
 
 ```powershell
 .venv\Scripts\python.exe backend\scripts\build_section_catalog.py
 ```
 
-目前版本专注框架常用的热轧H型钢，暂不提供T型钢、GB/T 706工字钢/槽钢/角钢、钢管及自定义焊接截面；不要把不在库内的截面型号用于分析或验算。型钢表未列腹板剪切面积一阶矩时，`Sx` 使用矩形分解近似，计算报告应保留该假定说明。
+当前合并库仅含以上两种来源，不含T型钢、GB/T 706工字钢/槽钢/角钢和钢管。焊接选型算法所述“通过”只覆盖其实现的Q235强度筛选及有限的翼缘几何筛查；腹板稳定、整体稳定和其他设计检查仍需另外完成。热轧型钢表未列腹板剪切面积一阶矩时，`Sx` 使用矩形分解近似，计算报告应保留该假定说明。
 
 ## OpenSees → 逐构件验算 → 报告/可视化
 
