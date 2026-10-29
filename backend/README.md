@@ -4,7 +4,7 @@ FastAPI 网关默认从仓库内 `backend/tool_sources/` 加载结构工具；�
 
 ## 启动
 
-Windows 可双击项目根目录的 `start_tool_gateway.bat` 启动本地服务（使用项目 `.venv`）。启动器会等待 `/health` 检查通过后自动打开 Agent 页面；服务窗口需要保持运行，关闭窗口会停止网关。若已存在健康的 SteelMind 网关，启动器会复用并打开页面，不会重复绑定端口。首次使用或升级依赖时，运行：
+Windows 可双击项目根目录的 `start_tool_gateway.bat` 启动本地服务。已有项目 `.venv` 时会补齐后端依赖；没有 `.venv` 时会自动切换到 Conda 启动器，查找 Anaconda/Miniconda 并创建 `steelmind` 环境。启动器会等待 `/health` 检查通过后自动打开 Agent 页面；服务窗口需要保持运行，关闭窗口会停止网关。若已存在健康的 SteelMind 网关，启动器会复用并打开页面，不会重复绑定端口。首次安装需要联网下载 Python 和依赖包。
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
@@ -23,7 +23,7 @@ chmod +x start_tool_gateway.sh
 
 每台需要运行本地工具网关的电脑都需要安装项目依赖。用户不必手动创建 Python 虚拟环境；以下启动器会使用 `environment.yml` 创建名为 `steelmind` 的 Conda 环境（Python 3.12），安装 `backend/requirements.txt` 中的依赖，然后启动网关。首次运行需要联网下载 Conda 与 pip 包。
 
-- Windows：在 Anaconda Prompt 中运行仓库根目录的 `start_tool_gateway_conda.bat`。
+- Windows：双击仓库根目录的 `start_tool_gateway.bat` 或 `start_tool_gateway_conda.bat`；Conda 不必预先创建 `steelmind` 环境。若 Anaconda 安装在自定义目录且启动器找不到它，可设置环境变量 `CONDA_EXE` 指向 `...\Scripts\conda.exe`，或在 Anaconda Prompt 中启动。
 - Linux/macOS：先初始化 Anaconda/Miniconda shell，然后运行 `chmod +x start_tool_gateway_conda.sh && ./start_tool_gateway_conda.sh`。
 
 后续仍可使用同一个启动器；它会检查环境、补齐依赖并启动服务。环境名可通过 `STEELMIND_CONDA_ENV` 修改。PDF 导出还需要系统安装 LibreOffice；中文 PDF 需要 Noto Sans CJK SC 字体。若本机已安装 `steelmind` Conda 环境，也可直接从激活该环境的终端启动：`python -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000`。

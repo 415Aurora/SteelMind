@@ -4,14 +4,26 @@
 
 ## 本地运行
 
-在 `dist` 目录启动静态服务器：
+### Windows（推荐）
+
+安装 Anaconda 或 Miniconda 后，双击项目根目录的 `start_tool_gateway.bat`。如果项目没有 `.venv`，启动器会自动查找 Conda、创建名为 `steelmind` 的 Python 环境、安装工具依赖，随后启动服务并打开 Agent 网页。首次部署需要联网下载环境和依赖。也可以直接双击 `start_tool_gateway_conda.bat`。
+
+Conda 默认安装路径会自动查找；如果安装在自定义路径，可设置 `CONDA_EXE` 环境变量，指向该安装目录下的 `Scripts\conda.exe`。
+
+### Linux/macOS
+
+安装并初始化 Conda 后，运行 `./start_tool_gateway_conda.sh`；或者运行 `./start_tool_gateway.sh`，后者会使用项目 `.venv`。启动器会在服务就绪后自动打开 Agent 网页。详细说明见 [`backend/README.md`](backend/README.md)。
+
+### 仅启动静态网页
+
+如只需预览前端，可在 `dist` 目录启动静态服务器：
 
 ```powershell
 cd .\steel-agent
 python -m http.server 8080 --directory dist
 ```
 
-然后打开 `http://localhost:8080`。
+然后打开 `http://localhost:8080`。需要调用 Python 工具时，应使用上面的网关启动器。
 
 ## Token 与安全
 
