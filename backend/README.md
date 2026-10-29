@@ -19,6 +19,15 @@ chmod +x start_tool_gateway.sh
 
 服务启动后访问 `http://127.0.0.1:8000/health` 检查状态。PDF 导出还需要安装 LibreOffice；中文 PDF 需要安装 Noto Sans CJK SC 字体。
 
+### 使用 Anaconda/Miniconda 自动部署环境
+
+每台需要运行本地工具网关的电脑都需要安装项目依赖。用户不必手动创建 Python 虚拟环境；以下启动器会使用 `environment.yml` 创建名为 `steelmind` 的 Conda 环境（Python 3.12），安装 `backend/requirements.txt` 中的依赖，然后启动网关。首次运行需要联网下载 Conda 与 pip 包。
+
+- Windows：在 Anaconda Prompt 中运行仓库根目录的 `start_tool_gateway_conda.bat`。
+- Linux/macOS：先初始化 Anaconda/Miniconda shell，然后运行 `chmod +x start_tool_gateway_conda.sh && ./start_tool_gateway_conda.sh`。
+
+后续仍可使用同一个启动器；它会检查环境、补齐依赖并启动服务。环境名可通过 `STEELMIND_CONDA_ENV` 修改。PDF 导出还需要系统安装 LibreOffice；中文 PDF 需要 Noto Sans CJK SC 字体。若本机已安装 `steelmind` Conda 环境，也可直接从激活该环境的终端启动：`python -m uvicorn app:app --app-dir backend --host 127.0.0.1 --port 8000`。
+
 在安装了 Python 依赖的 Anaconda Prompt / PowerShell 中运行：
 
 ```powershell
