@@ -48,7 +48,7 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 | `tool_sources/structural_calc.py` | `validate_steel_frame_parameters`、`query_steel_sections`、`calculate_load_combination`、`check_steel_member`；另有旧兼容工具 `optimize_steel_truss_members` |
 | `section_catalog.py`、`steel_sections.json` | 统一本地型钢截面数据与查找接口；当前收录 GB/T 11263-2024 附录A表A.1的 430 个热轧H型钢型号，设计、验算、OpenSees、优化和截面展示共用。`scripts/build_section_catalog.py` 从本地规范 PDF 重建 JSON |
 | `tool_sources/opensees_analysis.py` | `opensees_frame_verify`：参数化二维钢框架 OpenSeesPy 建模与静力分析；为成果导出返回实体节点、位移、支座反力、杆件节点关系和局部端力 |
-| `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：框架三维交互展示、构件验算着色和截面图形数据 |
+| `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：按 X/Z 双向跨数与跨度生成空间几何展示、构件验算着色和截面图形数据；当前 OpenSees 求解器仍为二维，不把面外几何当作计算结果 |
 | `tool_sources/generate_design_files.py` | `generate_calculation_book`、`generate_design_outputs`：生成计算书及 Excel/Word/DXF 文件 |
 | `tool_sources/engineering_drawings.py` | `generate_construction_drawing_package`：把工作流2最终报告映射为严格的 DesignBundle、预检数据、生成成果包并转成网关下载链接 |
 | `engineering_export/src/steelmind_export/` | 新接入的成果生成组件：DesignBundle 契约、输入/覆盖校核、计算书与结果表、DXF/PDF 图纸、成果清单/哈希/ZIP；随包保留 README、测试、示例和中文字体授权 |
