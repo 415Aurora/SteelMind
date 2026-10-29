@@ -36,7 +36,7 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AIwork\steel-agent\backend' --host 127.0.0.1 --port 8000
 ```
 
-服务启动后先在浏览器打开 `http://127.0.0.1:8000/health`，再回到 SteelMind 点“检查工具服务”。本机服务绑定 loopback，避免默认暴露到局域网。
+服务启动后先在浏览器打开 `http://127.0.0.1:8000/health`，再回到 SteelMind 点“检查工具服务”。根地址 `http://127.0.0.1:8000/` 会说明网关状态和可用 API；该后端地址不是智能体前端页面。本机服务绑定 loopback，避免默认暴露到局域网。
 
 ## 代码与工具索引
 

@@ -232,6 +232,19 @@ def startup() -> None:
     load_tools()
 
 
+@app.get("/")
+def gateway_home() -> dict[str, Any]:
+    """Explain that the root URL is the API gateway, not the browser UI."""
+    return {
+        "service": "SteelMind Tool Gateway",
+        "ok": True,
+        "message": "工具网关已运行；此地址是后端 API，不是智能体网页。",
+        "health": "/health",
+        "tools": "/tools",
+        "api_docs": "/docs",
+    }
+
+
 def _availability_error(name: str) -> str | None:
     if name not in TOOLS:
         return LOAD_ERRORS.get("local_standards_rag", LOAD_ERRORS.get(name, "工具未加载")) if name in {"query_region_params", "search_steel_standards"} else LOAD_ERRORS.get(name, "工具未加载")
