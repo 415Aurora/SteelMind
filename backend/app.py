@@ -23,6 +23,7 @@ from section_catalog import catalog_info, search_sections
 
 SOURCE = Path(os.getenv("STEEL_TOOL_SOURCE", str(Path(__file__).resolve().parent / "tool_sources"))).expanduser().resolve()
 ARTIFACT_DIR = Path(os.getenv("STEEL_ARTIFACT_DIR", str(Path(__file__).parent / "artifacts"))).resolve()
+WEB_ROOT = Path(__file__).resolve().parent.parent / "dist"
 SITE_ORIGIN = "https://steelmind-design-assistant.siwuxiegroup.chatgpt.site"
 DEFAULT_ORIGINS = [SITE_ORIGIN, "http://localhost:8080", "http://127.0.0.1:8080"]
 ALLOWED_ORIGINS = [x.strip() for x in os.getenv("STEEL_ALLOWED_ORIGINS", ",".join(DEFAULT_ORIGINS)).split(",") if x.strip()]
@@ -233,16 +234,22 @@ def startup() -> None:
 
 
 @app.get("/")
-def gateway_home() -> dict[str, Any]:
-    """Explain that the root URL is the API gateway, not the browser UI."""
-    return {
-        "service": "SteelMind Tool Gateway",
-        "ok": True,
-        "message": "工具网关已运行；此地址是后端 API，不是智能体网页。",
-        "health": "/health",
-        "tools": "/tools",
-        "api_docs": "/docs",
-    }
+def gateway_home() -> FileResponse:
+    """Serve the local SteelMind browser UI from the gateway root."""
+    index = (WEB_ROOT / "index.html").resolve()
+    if index.parent != WEB_ROOT.resolve() or not index.is_file():
+        raise HTTPException(status_code=503, detail="本地网页 dist/index.html 不存在")
+    return FileResponse(index, media_type="text/html; charset=utf-8")
+
+
+@app.get("/steel_modeling_parameters_template.xlsx")
+def download_model_template() -> FileResponse:
+    """Serve the parameter workbook linked from the local browser UI."""
+    template = (WEB_ROOT / "steel_modeling_parameters_template.xlsx").resolve()
+    if template.parent != WEB_ROOT.resolve() or not template.is_file():
+        raise HTTPException(status_code=404, detail="建模参数模板文件不存在")
+    return FileResponse(template, filename=template.name,
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def _availability_error(name: str) -> str | None:
