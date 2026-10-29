@@ -10,6 +10,15 @@ Windows 可双击项目根目录的 `start_tool_gateway.bat` 启动本地服务�
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 ```
 
+Linux/macOS 使用项目根目录的 `start_tool_gateway.sh`。首次启动时，脚本会创建 `.venv` 并安装后端依赖；之后直接运行脚本即可。推荐安装 Python 3.12。若 Python 不在默认路径，可通过 `STEELMIND_PYTHON` 指定解释器；也可通过 `STEELMIND_VENV` 指定虚拟环境目录。
+
+```bash
+chmod +x start_tool_gateway.sh
+./start_tool_gateway.sh
+```
+
+服务启动后访问 `http://127.0.0.1:8000/health` 检查状态。PDF 导出还需要安装 LibreOffice；中文 PDF 需要安装 Noto Sans CJK SC 字体。
+
 在安装了 Python 依赖的 Anaconda Prompt / PowerShell 中运行：
 
 ```powershell
