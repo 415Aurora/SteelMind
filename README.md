@@ -14,7 +14,15 @@ Conda 默认安装路径会自动查找；如果安装在自定义路径，可�
 
 安装并初始化 Conda 后，运行 `./start_tool_gateway_conda.sh`；或者运行 `./start_tool_gateway.sh`，后者会使用项目 `.venv`。启动器会在服务就绪后自动打开 Agent 网页。详细说明见 [`backend/README.md`](backend/README.md)。
 
-### 仅启动静态网页
+### Python 环境清单
+
+- `environment-steelmind-win64.yml`：Anaconda 导出的完整 `steelmind` 环境，适用于 Windows 64 位，包含 Python 3.12.16、Conda 运行库和已解析的 pip 包版本。使用 `conda env create -f environment-steelmind-win64.yml` 可重建。
+- 根目录 `requirements.txt`：与该导出同步的 pip 包版本快照；它不包含 Python 解释器和 Conda 运行库。
+- `backend/requirements.txt`：启动脚本使用的兼容版本范围清单，便于在不同机器上安装更新的兼容版本。
+
+`environment-steelmind-win64.yml` 含 Windows 专用运行库和 `openseespywin`，不能直接用于 Linux/macOS；其他系统请使用对应系统的启动脚本和依赖安装流程。
+
+## 仅启动静态网页
 
 如只需预览前端，可在 `dist` 目录启动静态服务器：
 
