@@ -192,6 +192,20 @@ def search_standards(
     return scored[:top_k]
 
 
+def _clause_matches(value: str, target: str) -> bool:
+    """Match a clause as a complete identifier, allowing formula suffixes."""
+    normalized = unicodedata.normalize("NFKC", value or "")
+    target = unicodedata.normalize("NFKC", target or "").strip()
+    if not target:
+        return False
+    if normalized.strip() == target:
+        return True
+    # Do not let 4.4.1 match 14.4.1.  A following "-1" is accepted because it is
+    # a formula/subclause of the requested identifier.
+    pattern = rf"(?<![0-9A-Z]){re.escape(target)}(?![0-9]|\.\d)"
+    return re.search(pattern, normalized, flags=re.IGNORECASE) is not None
+
+
 def get_clause(standard_id: str, clause_no: str) -> list[dict]:
     connection, _ = load_index()
     connection.row_factory = sqlite3.Row
@@ -208,8 +222,8 @@ def get_clause(standard_id: str, clause_no: str) -> list[dict]:
         text_value = unicodedata.normalize("NFKC", row["text"])
         if (
             clause_value == target_clause
-            or target_clause in heading_value
-            or target_clause in text_value
+            or _clause_matches(heading_value, target_clause)
+            or _clause_matches(text_value, target_clause)
         ):
             matched.append(row_to_dict(row))
         if len(matched) >= 10:
