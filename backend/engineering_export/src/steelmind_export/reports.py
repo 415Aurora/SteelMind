@@ -55,6 +55,22 @@ def _status(check: Check) -> str:
     return check.status
 
 
+def _result_dashboard(bundle: DesignBundle):
+    checks = bundle.checks
+    counts = {state: sum(check.status == state for check in checks) for state in ('PASS', 'FAIL', 'NA')}
+    missing = sum(check.demand is None or check.limit is None or check.utilization is None for check in checks)
+    ranked = sorted((check for check in checks if check.utilization is not None),
+                    key=lambda check: check.utilization, reverse=True)
+    controlling = ranked[0] if ranked else None
+    return [
+        ['统计对象', f'{len(bundle.model.members)} 根模型构件 / {len(bundle.model.nodes)} 个节点 / {len(checks)} 条验算记录'],
+        ['上游判定计数', f"PASS {counts['PASS']} / FAIL {counts['FAIL']} / NA {counts['NA']}；数值字段缺项 {missing}"],
+        ['控制利用率', f'{controlling.target_id} · {controlling.item} · U={_text(controlling.utilization)}' if controlling else MISSING],
+        ['前五项高利用率', '；'.join(f'{item.target_id}/{item.item} U={_text(item.utilization)}' for item in ranked[:5]) or MISSING],
+        ['结果解释', '计数仅汇总输入的上游验算记录；不等同本导出器独立复算或整体安全判定。'],
+    ]
+
+
 def _field(paragraph, instruction: str):
     field = OxmlElement('w:fldSimple')
     field.set(qn('w:instr'), instruction)
@@ -133,12 +149,21 @@ def _geometry(bundle, destination: Path, font_path: Path):
         FigureCanvasAgg(figure)
         ax = figure.add_subplot(111)
         nodes = {n.id: n for n in bundle.model.nodes}
+        checks_by_member = {}
+        for check in bundle.checks:
+            checks_by_member.setdefault(check.target_id, []).append(check)
+        status_colors = {'PASS': '#12805c', 'FAIL': '#c00000', 'NA': '#d08a00'}
         for member in bundle.model.members:
             if member.node_i not in nodes or member.node_j not in nodes:
                 continue
             a, b = nodes[member.node_i], nodes[member.node_j]
-            ax.plot([a.x_m, b.x_m], [a.y_m, b.y_m], color='#263238', linewidth=1.7)
-            ax.annotate(member.id, ((a.x_m+b.x_m)/2, (a.y_m+b.y_m)/2),
+            records = checks_by_member.get(member.id, [])
+            state = ('FAIL' if any(c.status == 'FAIL' for c in records) else
+                     'PASS' if records and all(c.status == 'PASS' for c in records) else
+                     'NA' if records else 'UNASSESSED')
+            color = status_colors.get(state, '#263238')
+            ax.plot([a.x_m, b.x_m], [a.y_m, b.y_m], color=color, linewidth=2.2 if state == 'FAIL' else 1.7)
+            ax.annotate(member.id + (' !' if state == 'FAIL' else ''), ((a.x_m+b.x_m)/2, (a.y_m+b.y_m)/2),
                         xytext=(4, 5), textcoords='offset points', fontproperties=font)
         for node in nodes.values():
             ax.plot(node.x_m, node.y_m, 'o', color='#263238', markersize=3)
@@ -149,6 +174,11 @@ def _geometry(bundle, destination: Path, font_path: Path):
         ax.set_xlabel('x / m', fontproperties=font)
         ax.set_ylabel('y / m', fontproperties=font)
         ax.set_title('节点与构件实际坐标', fontproperties=font)
+        from matplotlib.lines import Line2D
+        legend = [Line2D([0], [0], color=color, lw=2, label=label)
+                  for label, color in [('通过', status_colors['PASS']), ('未通过', status_colors['FAIL']),
+                                       ('未验算/状态不明', '#263238')]]
+        ax.legend(handles=legend, loc='best', prop=font, framealpha=.88)
         ax.set_aspect('equal', adjustable='datalim')
         ax.margins(.15)
         ax.grid(True, color='#dddddd', linewidth=.5)
@@ -231,6 +261,8 @@ def _make_docx(bundle, validation, destination, diagram, font_family, font_path)
         ['数据校核', validation.data_validation_status],
         ['上游验算项汇总', validation.upstream_check_summary],
     ], widths=[4, 12])
+    doc.add_heading('结果速览（上游记录）', 2)
+    _table(doc, ['指标', '记录'], _result_dashboard(bundle), widths=[4, 12])
     for key, label in (('phase', '设计阶段'), ('designer', '编制'), ('institution', '学校或单位'),
                        ('student_id', '学号'), ('date', '编制日期')):
         _paragraph(doc, f'{label}  {_text(getattr(project, key))}')
@@ -447,6 +479,7 @@ def _make_workbook(bundle, validation, destination, font_family):
     overview.extend([f'project.{key}',value] for key,value in bundle.project.model_dump().items())
     overview.extend([f'provenance.{key}',value] for key,value in bundle.provenance.model_dump().items())
     overview.extend([f'{level}.{i.code} {i.path}',i.message] for level,issues in [('ERROR',validation.errors),('WARNING',validation.warnings)] for i in issues)
+    overview.extend([f'结果速览.{row[0]}', row[1]] for row in _result_dashboard(bundle))
     supports = {s.node_id:s for s in bundle.model.supports}
     nodes = [[n.id,n.x_m,n.y_m,*([supports[n.id].ux,supports[n.id].uy,supports[n.id].rz] if n.id in supports else [None,None,None])] for n in bundle.model.nodes]
     loads = []

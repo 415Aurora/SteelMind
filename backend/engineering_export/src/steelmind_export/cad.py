@@ -24,8 +24,10 @@ from . import runtime
 
 LAYERS = {
     'S-OUTLINE': 35, 'S-AXIS': 13, 'S-DIM': 18, 'S-TEXT': 18,
-    'S-SUPPORT': 25, 'S-RELEASE': 18, 'P-FRAME': 35, 'P-TEXT': 18, 'P-VPORT': 0,
+    'S-SUPPORT': 25, 'S-RELEASE': 18, 'S-PASS': 35, 'S-FAIL': 35,
+    'S-NA': 25, 'S-UNCHECKED': 25, 'P-FRAME': 35, 'P-TEXT': 18, 'P-VPORT': 0,
 }
+LAYER_COLORS = {'S-PASS': 3, 'S-FAIL': 1, 'S-NA': 2, 'S-UNCHECKED': 8}
 FRAME_SCALES = (50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
 VIEW_RECT = (30., 80., 390., 260.)
 _TEXT_METRIC = ContextVar('steelmind_cad_text_metric', default=None)
@@ -72,7 +74,7 @@ def _new_doc(font_path):
     doc.header['$LUNITS'] = 2
     doc.header['$LUPREC'] = 3
     for name, weight in LAYERS.items():
-        doc.layers.new(name, dxfattribs={'color':7,'lineweight':weight, 'plot':int(name!='P-VPORT')})
+        doc.layers.new(name, dxfattribs={'color':LAYER_COLORS.get(name,7),'lineweight':weight, 'plot':int(name!='P-VPORT')})
     # Filename travels with the editable drawing; rendering registers its full path.
     doc.styles.new('STEELMIND',dxfattribs={'font':font_path.name})
     doc.styles.get('Standard').dxf.font = font_path.name
@@ -104,11 +106,12 @@ def _sheet_frame(layout, bundle, validation, title, sheet_no, scale='—'):
     note = '上游验算汇总: '+validation.upstream_check_summary
     if validation.upstream_check_summary=='FAIL': note += ' | 警告：上游存在 FAIL 验算'
     _text(layout,note,18,61,3.0)
-    _text(layout,'仅按输入二维杆系绘制；未推定面外构造或节点连接。',18,53,2.7)
-    _text(layout,'模型单位 mm；坐标 = 输入 m × 1000；全局 X 向右，Y 向上。',18,45,2.7)
-    _text(layout,'圆圈 = 指定杆端转动释放；不代表实体连接构造。',18,37,2.7)
-    _text(layout,'支座旁 ux / uy / rz: 1=约束，0=自由；未补充约束。',18,29,2.7)
-    _text(layout,'截面及材料采用输入值；图纸不替代施工图与工程校核。',18,21,2.7)
+    _text(layout,'构件颜色: 绿=全部通过  红=含未通过  黄=NA  灰=无验算记录',18,57,2.7)
+    _text(layout,'仅按输入二维杆系绘制；未推定面外构造或节点连接。',18,49,2.7)
+    _text(layout,'模型单位 mm；坐标 = 输入 m × 1000；全局 X 向右，Y 向上。',18,41,2.7)
+    _text(layout,'圆圈 = 指定杆端转动释放；不代表实体连接构造。',18,33,2.7)
+    _text(layout,'支座旁 ux / uy / rz: 1=约束，0=自由；未补充约束。',18,25,2.7)
+    _text(layout,'截面及材料采用输入值；图纸不替代施工图与工程校核。',18,17,2.7)
     institution='机构: '+bundle.project.institution+'  学号: '+bundle.project.student_id
     if len(_wrap(institution,210,2.5))>1: institution='机构 / 学号详见项目资料页'
     _text(layout,institution,18,13,2.5)
@@ -165,6 +168,9 @@ def _frame_tiles(bundle):
 def _frame_model(doc,bundle,scale,expected,assignments=False):
     model=doc.modelspace(); nodes={n.id:(n.x_m*1000,n.y_m*1000) for n in bundle.model.nodes}
     sections={s.id:s for s in bundle.model.sections}
+    check_map={}
+    for check in bundle.checks:
+        check_map.setdefault(check.target_id,[]).append(check)
     x0,y0,x1,y1=_geometry_bounds(bundle)
     h=2.7*scale
     # Every actual member is one independently editable line at original coords.
@@ -172,7 +178,13 @@ def _frame_model(doc,bundle,scale,expected,assignments=False):
     lanes=Counter()
     for member in bundle.model.members:
         a,b=nodes[member.node_i],nodes[member.node_j]
-        _line(model,a,b,'S-OUTLINE')
+        records=check_map.get(member.id,[])
+        state=('FAIL' if any(c.status=='FAIL' for c in records) else
+               'PASS' if records and all(c.status=='PASS' for c in records) else
+               'NA' if records else 'UNCHECKED')
+        member_line=_line(model,a,b,'S-OUTLINE')
+        if state in ('FAIL','PASS','NA'):
+            member_line.dxf.color={'FAIL':1,'PASS':3,'NA':2}[state]
         dx,dy=b[0]-a[0],b[1]-a[1]; length=math.hypot(dx,dy)
         key=tuple(sorted((member.node_i,member.node_j)))
         lane=lanes[key]; lanes[key]+=1
@@ -189,6 +201,10 @@ def _frame_model(doc,bundle,scale,expected,assignments=False):
         else:
             tx,ty=midx-width/2,midy+(4+4*lane)*scale
         _text(model,label,tx,ty,h,'S-TEXT')
+        if state=='FAIL':
+            midpoint=((a[0]+b[0])/2,(a[1]+b[1])/2)
+            model.add_circle(midpoint,2.1*scale,dxfattribs={'layer':'S-FAIL'})
+            _text(model,'!',midpoint[0]-.65*scale,midpoint[1]-.9*scale,1.8*scale,'S-FAIL')
         for pt,other,released in ((a,b,member.release_i),(b,a,member.release_j)):
             if released:
                 delta=(other[0]-pt[0],other[1]-pt[1]); ratio=min(3*scale/length,.15)
@@ -552,10 +568,22 @@ def _export_design_files(bundle:DesignBundle,validation:ValidationReport,out:Pat
                 required=[n.id for n in bundle.model.nodes]+[m.id for m in bundle.model.members]
                 if assign: required += [m.section_id for m in bundle.model.members]
                 save(doc,f'{group}_{index:03}_{title}.dxf',expected,scale,required,{'logical_group':group,'tile':list(tile),'viewport_bounds_mm':bounds})
+        checks_by_member={}
+        for check in bundle.checks:
+            checks_by_member.setdefault(check.target_id,[]).append(check)
+        def member_check_summary(member_id):
+            records=checks_by_member.get(member_id,[])
+            state=('FAIL' if any(c.status=='FAIL' for c in records) else
+                   'PASS' if records and all(c.status=='PASS' for c in records) else
+                   'NA' if records else '未验算')
+            numeric=[c for c in records if c.utilization is not None]
+            governing=max(numeric,key=lambda c:c.utilization) if numeric else None
+            return state, (f'{governing.utilization:.4g}' if governing else '未提供'), (governing.item if governing else '')
         rows=[(m.id,m.node_i+' → '+m.node_j,m.section_id+' / '+next(s.name for s in bundle.model.sections if s.id==m.section_id),
                m.material_id+' / '+next(a.name for a in bundle.model.materials if a.id==m.material_id),
-               f'I:{int(m.release_i)} J:{int(m.release_j)}') for m in bundle.model.members]
-        headers=['构件 ID','I → J 节点','截面 ID / 名称','材料 ID / 名称','转动释放 1=是']; widths=[42,55,105,105,53]
+               f'I:{int(m.release_i)} J:{int(m.release_j)}',*member_check_summary(m.id)) for m in bundle.model.members]
+        headers=['构件 ID','I → J 节点','截面 ID / 名称','材料 ID / 名称','转动释放 1=是','验算状态','最大利用率','控制验算项']
+        widths=[30,42,68,68,40,42,32,38]
         for index,page in enumerate(_table_pages(rows,headers,widths),1):
             doc,layout=_new_doc(font_path); title='构件表与材料分配'
             _sheet_frame(layout,bundle,validation,title,f'02-T{index:03}')

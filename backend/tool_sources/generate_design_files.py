@@ -181,7 +181,7 @@ def _build_dxf(data: Dict[str, Any]) -> bytes:
 
 @tool
 def generate_calculation_book(payload: str) -> str:
-    """生成完整的钢结构结构计算书(Word)，并上传返回下载 URL。
+    """将已获得的工程输入、荷载、OpenSees 结果和逐构件验算写入 DOCX 并返回下载链接。
 
     传入 JSON 字符串，字段：
     {
@@ -192,52 +192,125 @@ def generate_calculation_book(payload: str) -> str:
       ],
       "conclusion": 结论(可选)
     }
-    输出覆盖设计依据、荷载组合、构件验算、有限元验证等章节的正式计算书。
+    输出为可编辑的结果归档。只整理输入和工具返回值，不补算缺失结果，也不代表正式审查结论。
     """
     ctx = request_context.get() or new_context(method="generate_calculation_book")
     try:
         data = json.loads(payload) if isinstance(payload, str) else payload
     except Exception as e:
-        return f"JSON 解析失败: {e}"
+        return json.dumps({"ok": False, "error": f"JSON 解析失败: {e}"}, ensure_ascii=False)
 
     import docx
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.shared import Pt
 
     doc = docx.Document()
     title = doc.add_heading(f"{data.get('project_name', '钢结构')}结构计算书", level=0)
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph("运行结果归档 · 可编辑 DOCX · 需专业工程师复核")
 
-    for ch in data.get("chapters", []):
-        doc.add_heading(ch.get("title", ""), level=1)
-        body = (ch.get("body") or "").strip()
-        for para in body.split("\n"):
-            para = para.strip()
-            if not para:
-                continue
-            if para.startswith("### "):
-                doc.add_heading(para[4:].strip(), level=2)
-            elif para.startswith("## "):
-                doc.add_heading(para[3:].strip(), level=1)
-            elif para.startswith("# "):
-                doc.add_heading(para[2:].strip(), level=0)
+    def scalar_text(value):
+        if value is None or value == "" or value == [] or value == {}:
+            return "待补充"
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False, allow_nan=False)
+        return str(value)
+
+    def add_value(label, value, depth=2):
+        level = min(max(depth, 2), 3)
+        if isinstance(value, dict):
+            doc.add_heading(str(label), level=level)
+            if not value:
+                doc.add_paragraph("待补充")
+            for key, item in value.items():
+                add_value(str(key), item, depth + 1)
+            return
+        if isinstance(value, list):
+            doc.add_heading(f"{label}（{len(value)} 项）", level=level)
+            if value and all(isinstance(item, dict) for item in value):
+                headers = list(dict.fromkeys(key for item in value for key in item))
+                table = doc.add_table(rows=1, cols=max(1, len(headers)))
+                table.style = "Table Grid"
+                for cell, key in zip(table.rows[0].cells, headers):
+                    cell.text = str(key)
+                for item in value:
+                    cells = table.add_row().cells
+                    for cell, key in zip(cells, headers):
+                        cell.text = scalar_text(item.get(key))
+            elif value:
+                for item in value:
+                    doc.add_paragraph(scalar_text(item), style="List Bullet")
             else:
-                doc.add_paragraph(para)
+                doc.add_paragraph("待补充")
+            return
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run(f"{label}：")
+        run.bold = True
+        paragraph.add_run(scalar_text(value))
+
+    def parse_structured(value):
+        if not isinstance(value, str):
+            return value
+        try:
+            return json.loads(value)
+        except (TypeError, ValueError):
+            return value
+
+    chapters = data.get("chapters") or []
+    for chapter in chapters:
+        if not isinstance(chapter, dict):
+            continue
+        doc.add_heading(str(chapter.get("title") or "计算结果"), level=1)
+        body = chapter.get("body")
+        structured = parse_structured(body)
+        if isinstance(structured, (dict, list)):
+            add_value("数据记录", structured)
+        else:
+            for line in str(body or "待补充").splitlines():
+                line = line.strip()
+                if line.startswith("### "):
+                    doc.add_heading(line[4:], level=2)
+                elif line.startswith("## "):
+                    doc.add_heading(line[3:], level=1)
+                elif line:
+                    doc.add_paragraph(line)
+
+    # Include numeric outputs as native tables, rather than leaving them only
+    # in the chat transcript or flattening the report to chapter placeholders.
+    for key, label in (("model_parameters", "模型与输入参数"), ("load_results", "荷载组合结果"),
+                       ("analysis_results", "OpenSees 分析结果"), ("member_checks", "逐构件验算结果"),
+                       ("iteration_history", "截面迭代记录")):
+        value = data.get(key)
+        if value not in (None, "", [], {}):
+            doc.add_heading(label, level=1)
+            add_value(label, parse_structured(value), depth=2)
 
     if data.get("conclusion"):
-        doc.add_heading("结论", level=1)
-        doc.add_paragraph(data["conclusion"])
+        doc.add_heading("结论与适用边界", level=1)
+        doc.add_paragraph(str(data["conclusion"]))
+    for section in doc.sections:
+        section.left_margin = section.right_margin = docx.shared.Cm(2.0)
+    normal = doc.styles["Normal"]
+    normal.font.name = "Microsoft YaHei"
+    normal.font.size = Pt(10)
+    normal._element.rPr.rFonts.set(docx.oxml.ns.qn("w:eastAsia"), "Microsoft YaHei")
 
     buf = io.BytesIO()
     doc.save(buf)
+    content = buf.getvalue()
     try:
         storage = _get_storage()
+        filename = f"{data.get('project_name', '钢结构')}_计算书.docx"
         url = _upload_file(
-            storage, buf.getvalue(), "structural_calculation_book.docx",
+            storage, content, filename,
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        return f"结构计算书已生成并上传：{url}"
+        return json.dumps({"ok": True, "summary": f"已将运行输入与计算结果写入 DOCX（{len(chapters)} 个章节）。",
+                           "artifacts": [{"kind": "calculation_book", "name": filename,
+                                          "media_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                          "url": url}],
+                           "included": [key for key in ("model_parameters", "load_results", "analysis_results", "member_checks", "iteration_history") if data.get(key) not in (None, "", [], {})]}, ensure_ascii=False)
     except Exception as e:
-        return f"上传结构计算书失败: {e}"
+        return json.dumps({"ok": False, "error": f"上传结构计算书失败: {e}"}, ensure_ascii=False)
 
 
 @tool
@@ -274,12 +347,14 @@ def generate_design_outputs(payload: str) -> str:
         dxf_data = _build_dxf(data)
         dxf_url = _upload_file(storage, dxf_data, "structural_layout.dxf", "application/dxf")
 
-        return (
-            "设计产物已生成并上传：\n"
-            f"- 关键设计参数表: {excel_url}\n"
-            f"- 方案说明书: {docx_url}\n"
-            f"- 结构简图(DXF): {dxf_url}\n"
-            "（DXF 请用 AutoCAD/中望CAD/浩辰CAD 打开编辑为正式图纸）"
-        )
+        return json.dumps({"ok": True, "summary": "设计文件已生成。DXF 为可下载 CAD 文件，不在对话中展开源码。",
+                           "artifacts": [
+                               {"kind": "design_parameters", "name": "design_parameters.xlsx",
+                                "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "url": excel_url},
+                               {"kind": "design_description", "name": "design_description.docx",
+                                "media_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "url": docx_url},
+                               {"kind": "drawing", "name": "structural_layout.dxf",
+                                "media_type": "application/dxf", "url": dxf_url},
+                           ]}, ensure_ascii=False)
     except Exception as e:
-        return f"生成/上传设计产物失败: {e}"
+        return json.dumps({"ok": False, "error": f"生成/上传设计产物失败: {e}"}, ensure_ascii=False)

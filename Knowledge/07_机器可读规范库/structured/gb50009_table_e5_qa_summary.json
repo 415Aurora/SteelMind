@@ -1,0 +1,24 @@
+{
+  "standard": "GB 50009-2012",
+  "table": "附录E 表E.5",
+  "stations": 667,
+  "parameter_records": 6670,
+  "review_queue_records": 2330,
+  "status_counts": {
+    "ocr_value": 3761,
+    "low_confidence_review": 1095,
+    "ocr_high_confidence": 579,
+    "null_unread_or_dash_review": 992,
+    "city_row_review": 217,
+    "out_of_range_review": 24,
+    "decimal_normalized_review": 2
+  },
+  "pdf_page_range": [
+    111,
+    158
+  ],
+  "printed_page_range": [
+    103,
+    150
+  ]
+}

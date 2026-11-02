@@ -208,10 +208,13 @@ def _visualize(state: WorkflowState) -> dict[str, Any]:
                      "passed": c.get("passed"), "section": c.get("section"),
                      "steel": c.get("steel"), "span_m": c.get("span_m"),
                      "demands": c.get("demands"), "checks": c.get("checks", []),
+                     "utilization": c.get("utilization"),
+                     "utilization_components": c.get("utilization_components"),
                      "result": c.get("result"), "error": c.get("error")}
                     for c in state.get("checks", [])]
         result = _tool_text("opensees_frame_visualize", {
-            "parameters": analysis["parameters"], "member_checks": statuses})
+            "parameters": analysis["parameters"], "results": analysis.get("results", {}),
+            "member_checks": statuses})
         parsed = json.loads(result)
         if not parsed.get("ok"):
             raise RuntimeError(parsed.get("error", "可视化工具未生成 HTML"))
@@ -613,8 +616,12 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
         statuses = [{"member_id": c.get("member_id"), "member_type": c.get("member_type"),
                      "passed": c.get("passed"), "section": c.get("section"), "steel": c.get("steel"),
                      "span_m": c.get("span_m"), "demands": c.get("demands"), "checks": c.get("checks", []),
+                     "utilization": c.get("utilization"),
+                     "utilization_components": c.get("utilization_components"),
                      "result": c.get("result_text", ""), "error": c.get("error")} for c in final_checks]
-        vis_result = _tool_text("opensees_frame_visualize", {"parameters": final_analysis.get("parameters", {}), "member_checks": statuses})
+        vis_result = _tool_text("opensees_frame_visualize", {
+            "parameters": final_analysis.get("parameters", {}),
+            "results": final_analysis.get("results", {}), "member_checks": statuses})
     except Exception as exc:
         state.setdefault("errors", []).append(f"三维可视化生成失败：{exc}")
     artifacts = {}
@@ -646,6 +653,52 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
             "draft": True, "draft_reasons": ["工作流2未收敛，不能提交给图纸成果生成工具"],
             "errors": [], "warnings": [],
         }
+    # Archive the same final-cycle data returned to the UI while it is still
+    # available in this run. The DOCX is explicitly marked as provisional when
+    # iteration did not converge; it never upgrades the engineering status.
+    try:
+        load_results = req.get("load_results") or req.get("load_combination")
+        if not load_results:
+            load_input = req.get("loads", {})
+            if load_input.get("dead") not in (None, "") and load_input.get("live") not in (None, ""):
+                try:
+                    load_results = json.loads(_tool_text("calculate_load_combination", {
+                        "dead": load_input["dead"], "live": load_input["live"],
+                        "wind": load_input.get("wind", 0) or 0,
+                        "seismic": load_input.get("seismic", 0) or 0,
+                        "unit": load_input.get("unit", "kN/m"),
+                    }))
+                except Exception as exc:
+                    load_results = {"status": "组合结果不可用", "input_loads": load_input,
+                                    "error": f"{type(exc).__name__}: {exc}"}
+            else:
+                load_results = {"status": "仅归档用户提供荷载输入，未提供恒载与活载分项",
+                                "input_loads": load_input}
+        calculation_input = {
+            "project_name": report["project_name"],
+            "model_parameters": {
+                "geometry": req.get("geometry", {}), "loads": req.get("loads", {}),
+                "material": req.get("material", {}), "model_sections": req.get("model_sections", {}),
+            },
+            "load_results": load_results,
+            "analysis_results": final_analysis,
+            "member_checks": final_checks,
+            "iteration_history": history,
+            "conclusion": (
+                f"工作流2状态：{status}。" +
+                ("最终模型所有已提交验算项通过。" if converged_checked else "本轮未收敛，报告仅归档当前分析与验算记录，不作为最终设计结论。") +
+                "当前为方案级静力原型结果，须由专业工程师复核。"
+            ),
+        }
+        calculation_raw = _tool_text("generate_calculation_book", calculation_input)
+        calculation_result = json.loads(calculation_raw)
+        if calculation_result.get("ok") and calculation_result.get("artifacts"):
+            report["artifacts"]["calculation_book"] = {"artifacts": calculation_result["artifacts"]}
+            report["calculation_book_summary"] = calculation_result.get("summary", "计算书已生成")
+        else:
+            report.setdefault("artifact_errors", []).append(calculation_result.get("error", "计算书工具未返回 DOCX 文件"))
+    except Exception as exc:
+        report.setdefault("artifact_errors", []).append(f"计算书 DOCX 生成失败：{type(exc).__name__}: {exc}")
     return {"status": status, "report": report}
 
 

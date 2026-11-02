@@ -34,10 +34,13 @@ def _numbers(value, count, label, default):
 
 def _normalize(payload):
     data = json.loads(payload) if isinstance(payload, str) else dict(payload)
+    if isinstance(data.get("payload"), dict) and len(data) == 1:
+        data = data["payload"]
     # Also accept the complete JSON result returned by opensees_frame_verify.
     if isinstance(data.get("parameters"), dict):
         statuses = data.get("member_checks") or data.get("checks") or []
-        data = {**data["parameters"], "member_checks": statuses}
+        data = {**data["parameters"], "member_checks": statuses,
+                "analysis_results": data.get("results") or data.get("analysis_results") or {}}
     geometry = data.get("geometry") or data
     bays_x = int(geometry.get("bays_x", geometry.get("bays", 1)))
     bays_z = int(geometry.get("bays_z", 1))
@@ -65,10 +68,37 @@ def _normalize(payload):
     column_name = data.get("column_section") or column_name
     mat = data.get("material") or data.get("materials") or {}
     checks = data.get("member_checks") or data.get("checks") or []
-    member_statuses = {str(item.get("member_id")): bool(item.get("passed"))
-                       for item in checks if isinstance(item, dict) and item.get("member_id")}
-    member_checks = {str(item.get("member_id")): item
-                     for item in checks if isinstance(item, dict) and item.get("member_id")}
+    results = data.get("analysis_results") or data.get("results") or {}
+    analysis_members = {str(item.get("member_id")): item for item in results.get("members", [])
+                        if isinstance(item, dict) and item.get("member_id")}
+    supplied_checks = {str(item.get("member_id")): item for item in checks
+                       if isinstance(item, dict) and item.get("member_id")}
+    member_checks = {}
+    for member_id in set(analysis_members) | set(supplied_checks):
+        member_checks[member_id] = {**analysis_members.get(member_id, {}),
+                                    **supplied_checks.get(member_id, {})}
+        if not member_checks[member_id].get("demands"):
+            source = member_checks[member_id]
+            member_checks[member_id]["demands"] = source.get("analysis_demands") or {
+                key: source[key] for key in ("N_kn", "Mx_kNm", "My_kNm", "V_kn", "deflection_mm")
+                if key in source
+            }
+    member_statuses = {member_id: item.get("passed") for member_id, item in member_checks.items()}
+    member_utilizations = {}
+    for member_id, item in member_checks.items():
+        values = item.get("utilization_components") or {}
+        candidates = [float(value) for value in values.values()
+                      if isinstance(value, (int, float)) and math.isfinite(float(value))]
+        if isinstance(item.get("utilization"), (int, float)) and math.isfinite(float(item["utilization"])):
+            candidates.append(float(item["utilization"]))
+        if candidates:
+            member_utilizations[member_id] = max(candidates)
+    node_displacements = [
+        {"x_m": float(item["x_m"]), "y_m": float(item["y_m"]),
+         "ux_mm": float(item.get("ux_mm", 0.0)), "uy_mm": float(item.get("uy_mm", 0.0))}
+        for item in results.get("model_nodes", [])
+        if isinstance(item, dict) and all(key in item for key in ("x_m", "y_m"))
+    ]
     sections = data.get("sections") or {}
     beam_def = sections.get("beam") if isinstance(sections.get("beam"), dict) else {}
     column_def = sections.get("column") if isinstance(sections.get("column"), dict) else {}
@@ -98,6 +128,8 @@ def _normalize(payload):
         "steel_grade": str(mat.get("name", mat.get("steel_grade", "未指定"))),
         "member_statuses": member_statuses,
         "member_checks": member_checks,
+        "member_utilizations": member_utilizations,
+        "node_displacements": node_displacements,
         "beam_shape": beam_shape,
         "column_shape": column_shape,
         "member_shapes": member_shapes,
@@ -133,7 +165,7 @@ def draw_steel_section(payload: str) -> str:
         return json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False)
 
 
-def _build_html(model):
+def _build_html_base(model):
     # JSON is embedded only after escaping HTML-significant characters.
     model_json = json.dumps(model, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     return r'''<!doctype html>
@@ -154,7 +186,7 @@ const M=__MODEL_JSON__,canvas=document.getElementById('view'),ctx=canvas.getCont
 const xs=[0];for(const v of M.spans_x_m)xs.push(xs.at(-1)+v);const zs=[0];for(const v of M.spans_z_m)zs.push(zs.at(-1)+v);const ys=[0];for(const v of M.story_heights_m)ys.push(ys.at(-1)+v);
 const nodes=[];for(let j=0;j<=M.stories;j++)for(let k=0;k<=M.bays_z;k++)for(let i=0;i<=M.bays_x;i++)nodes.push([xs[i],ys[j],zs[k]]);
 let yaw=-.58,pitch=.28,zoom=1,panX=0,panY=0,drag=null,selectedMember=null,pickableMembers=[];
-const failedMembers=Object.entries(M.member_statuses||{}).filter(([,passed])=>passed===false).map(([id])=>id);const beamCount=M.stories*(M.bays_x*(M.bays_z+1)+M.bays_z*(M.bays_x+1)),columnCount=(M.bays_x+1)*(M.bays_z+1)*M.stories;document.getElementById('stats').innerHTML=`<div class="stat"><b>${M.bays_x} × ${M.bays_z}</b><span>X/Z 向跨数</span></div><div class="stat"><b>${M.stories}</b><span>层</span></div><div class="stat"><b>${nodes.length}</b><span>节点</span></div><div class="stat"><b>${beamCount}</b><span>梁</span></div><div class="stat"><b>${columnCount}</b><span>柱</span></div><div class="stat"><b style="color:${failedMembers.length?'#ff6974':'#44dec5'}">${failedMembers.length}</b><span>未通过</span></div>`;document.getElementById('failedList').textContent=failedMembers.length?'未通过：'+failedMembers.join('、'):'';
+const failedMembers=Object.entries(M.member_statuses||{}).filter(([,passed])=>passed===false).map(([id])=>id);const beamCount=M.stories*(M.bays_x*(M.bays_z+1)+M.bays_z*(M.bays_x+1)),columnCount=(M.bays_x+1)*(M.bays_z+1)*M.stories;document.getElementById('stats').innerHTML=`<div class="stat"><b>${M.bays_x} × ${M.bays_z}</b><span>X/Z 向跨数</span></div><div class="stat"><b>${M.stories}</b><span>层</span></div><div class="stat"><b>${nodes.length}</b><span>节点</span></div><div class="stat"><b>${beamCount}</b><span>梁</span></div><div class="stat"><b>${columnCount}</b><span>柱</span></div><div class="stat"><b style="color:${failedMembers.length?'#ff6974':'#44dec5'}">${failedMembers.length}</b><span>未通过</span></div>`;const failedList=document.getElementById('failedList');if(failedList)failedList.textContent=failedMembers.length?'未通过：'+failedMembers.join('、'):'';
 const totalX=M.spans_x_m.reduce((a,b)=>a+b,0),totalZ=M.spans_z_m.reduce((a,b)=>a+b,0);document.getElementById('subtitle').textContent=`X 向 ${M.bays_x} 跨 / ${totalX} m · Z 向 ${M.bays_z} 跨 / ${totalZ} m · ${M.stories} 层 · ${M.beam_name} / ${M.column_name} · ${M.steel_grade}`;
 document.getElementById('support').textContent=`柱脚：${M.base_support==='pinned'?'铰接':'刚接'}`;
 function resize(){const dpr=Math.min(devicePixelRatio||1,2),r=canvas.getBoundingClientRect();canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
@@ -183,6 +215,62 @@ document.getElementById('viewIso').onclick=()=>{yaw=-.58;pitch=.28;draw()};docum
 </script></body></html>'''.replace("__MODEL_JSON__", model_json)
 
 
+def _build_html(model):
+    """Add synchronized result layers to the draggable frame scene."""
+    document = _build_html_base(model)
+    def replace_once(source, old, new):
+        count = source.count(old)
+        if count != 1:
+            raise ValueError(f"可视化模板注入点异常：期望 1 处，实际 {count} 处：{old[:80]}")
+        return source.replace(old, new, 1)
+
+    document = replace_once(document,
+        '<button class="btn" id="reset">复位视角</button>',
+        '<label class="mode">结果图层 <select id="renderMode">'
+        '<option value="status">验算状态</option><option value="utilization">利用率</option>'
+        '<option value="force">内力量值</option><option value="deformed">变形示意</option></select></label>'
+        '<label class="mode">内力 <select id="forceMode">'
+        '<option value="N_kn">轴力 N</option><option value="V_kn">剪力 V</option>'
+        '<option value="Mx_kNm">弯矩 Mx</option></select></label>'
+        '<label class="mode">变形放大 <input id="deformScale" type="range" min="1" max="100" value="20">'
+        '<span id="deformScaleValue">20×</span></label>'
+        '<button class="btn" id="reset">复位视角</button>')
+    document, legend_count = re.subn(
+        r'<div class="hud legend">.*?</div><aside class="inspector"',
+        '<div class="hud legend" id="legend"></div><aside class="inspector"', document, count=1, flags=re.S)
+    if legend_count != 1:
+        raise ValueError("可视化模板注入点异常：未找到唯一图例区域")
+    document = replace_once(document,
+        '@media(max-width:650px)',
+        '.mode{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}.mode select{border:1px solid #38556c;color:var(--text);background:#142a3b;padding:7px 8px;border-radius:8px}.mode input{width:78px;accent-color:var(--teal)}.legend{pointer-events:none}\n@media(max-width:650px)')
+    document = replace_once(document,
+        'let yaw=-.58,pitch=.28,zoom=1,panX=0,panY=0,drag=null,selectedMember=null,pickableMembers=[];',
+        'let yaw=-.58,pitch=.28,zoom=1,panX=0,panY=0,drag=null,selectedMember=null,pickableMembers=[],renderMode="status",forceMode="Mx_kNm";'
+        'const displacementMap=new Map((M.node_displacements||[]).map(d=>[`${Number(d.x_m).toFixed(6)},${Number(d.y_m).toFixed(6)}`,d]));'
+        'function updateLegend(){const box=document.getElementById("legend");if(renderMode==="status")box.innerHTML="<div><i class=swatch style=background:#39d0bd></i>梁 · 未验算</div><div><i class=swatch style=background:#f2a94b></i>柱 · 未验算</div><div><i class=swatch style=background:#ff5c67></i>未通过</div><div><i class=swatch style=background:#44dec5></i>通过</div>";else if(renderMode==="utilization")box.innerHTML="<div><i class=swatch style=background:linear-gradient(90deg,#3b82f6,#facc15,#ef4444);width:54px></i>利用率 0 → 1.0+</div><div>无利用率时显示灰色</div>";else if(renderMode==="force")box.innerHTML=`<div><i class=swatch style=background:linear-gradient(90deg,#3b82f6,#facc15,#ef4444);width:54px></i>${forceMode.replace("_kn"," (kN)").replace("_kNm"," (kN·m)")}绝对值包络</div><div>按构件控制值着色，不绘制沿杆内力图</div>`;else box.innerHTML="<div>二维分析位移沿 Z 方向复制显示</div><div>仅为变形示意，不是空间分析结果</div>";}'
+        'updateLegend();'
+        'if(!displacementMap.size)document.querySelector("#renderMode option[value=deformed]").disabled=true;')
+    document = replace_once(document,
+        'function project(p){const x=p[0]-maxX/2,y=p[1]-maxY/2,z=p[2]-maxZ/2,',
+        'function project(p){let [px,py,pz]=p;if(renderMode==="deformed"&&displacementMap.size){const d=displacementMap.get(`${px.toFixed(6)},${py.toFixed(6)}`);if(d){const a=Number(document.getElementById("deformScale").value);px+=d.ux_mm/1000*a;py+=d.uy_mm/1000*a}}const x=px-maxX/2,y=py-maxY/2,z=pz-maxZ/2,')
+    document = replace_once(document,
+        'function member(item){',
+        'function heat(value,max){if(!Number.isFinite(value)||max<=0)return "#7b8994";const t=Math.max(0,Math.min(1,Math.abs(value)/max));const stops=[[59,130,246],[250,204,21],[239,68,68]],s=t<.5?0:1,u=t<.5?t*2:(t-.5)*2,a=stops[s],b=stops[s+1];return `rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`}'
+        'function memberColor(item,status,baseColor){if(renderMode==="status")return status===false?"#ff5c67":status===true?"#44dec5":baseColor;const record=M.member_checks?.[item.checkId]||{};if(renderMode==="utilization"){const u=Number(M.member_utilizations?.[item.checkId]);return Number.isFinite(u)?heat(u,1.15):"#7b8994"}if(renderMode==="force"){const v=Number(record.demands?.[forceMode]);const all=Object.values(M.member_checks||{}).map(x=>Math.abs(Number(x.demands?.[forceMode]))).filter(Number.isFinite);return Number.isFinite(v)?heat(v,Math.max(...all,0)):"#7b8994"}return baseColor}'
+        'function member(item){')
+    document = replace_once(document,
+        "color=status===false?'#ff5c67':status===true?'#44dec5':baseColor,{a,b}=item;",
+        'color=memberColor(item,status,baseColor),{a,b}=item;')
+    document = replace_once(document,
+        "document.getElementById('reset').onclick=()=>{yaw=-.58;pitch=.28;zoom=1;panX=panY=0;draw()};new ResizeObserver(resize).observe(canvas);resize();",
+        "document.getElementById('reset').onclick=()=>{yaw=-.58;pitch=.28;zoom=1;panX=panY=0;draw()};"
+        "document.getElementById('renderMode').onchange=e=>{renderMode=e.target.value;updateLegend();draw()};"
+        "document.getElementById('forceMode').onchange=e=>{forceMode=e.target.value;updateLegend();draw()};"
+        "document.getElementById('deformScale').oninput=e=>{document.getElementById('deformScaleValue').textContent=e.target.value+'×';draw()};"
+        "new ResizeObserver(resize).observe(canvas);resize();")
+    return document
+
+
 @tool
 def opensees_frame_visualize(payload: str) -> str:
     """从 OpenSees 参数或 opensees_frame_verify 的结果中生成可拖拽旋转的 3D 几何视图。
@@ -204,7 +292,7 @@ def opensees_frame_visualize(payload: str) -> str:
         url = f"{PUBLIC_BASE}/files/{artifact_id}"
         beams = model["stories"] * (model["bays_x"] * (model["bays_z"] + 1) + model["bays_z"] * (model["bays_x"] + 1))
         columns = (model["bays_x"] + 1) * (model["bays_z"] + 1) * model["stories"]
-        return json.dumps({"ok": True, "html_url": url, "file_name": filename,
+        return json.dumps({"ok": True, "html_url": url, "html_content": document, "file_name": filename,
                            "bays_x": model["bays_x"], "bays_z": model["bays_z"],
                            "spans_x_m": model["spans_x_m"], "spans_z_m": model["spans_z_m"],
                            "stories": model["stories"],
