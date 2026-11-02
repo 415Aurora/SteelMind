@@ -212,6 +212,21 @@ def calculate_load_combination(payload: str) -> str:
     lines.append(f"  频遇组合 G+0.5Q = {dead + 0.5 * live:.2f} {unit}")
     lines.append(f"  准永久组合 G+0.4Q = {dead + 0.4 * live:.2f} {unit}")
 
+    if d.get("structured_output"):
+        sls = [
+            {"name": "标准组合 G+Q", "value": dead + live, "unit": unit},
+            {"name": "频遇组合 G+0.5Q", "value": dead + 0.5 * live, "unit": unit},
+            {"name": "准永久组合 G+0.4Q", "value": dead + 0.4 * live, "unit": unit},
+        ]
+        governing = max(combos.items(), key=lambda item: item[1]) if combos else (None, None)
+        return json.dumps({
+            "ok": True,
+            "input_loads": {"dead": dead, "live": live, "wind": wind, "seismic": seismic, "unit": unit},
+            "uls_combinations": [{"name": name, "value": value, "unit": unit} for name, value in combos.items()],
+            "sls_combinations": sls,
+            "governing_uls": None if governing[0] is None else {"name": governing[0], "value": governing[1], "unit": unit},
+            "report_text": "\n".join(lines),
+        }, ensure_ascii=False)
     return "\n".join(lines)
 
 

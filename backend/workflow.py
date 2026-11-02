@@ -667,13 +667,16 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
                         "wind": load_input.get("wind", 0) or 0,
                         "seismic": load_input.get("seismic", 0) or 0,
                         "unit": load_input.get("unit", "kN/m"),
+                        "structured_output": True,
                     }))
                 except Exception as exc:
                     load_results = {"status": "组合结果不可用", "input_loads": load_input,
                                     "error": f"{type(exc).__name__}: {exc}"}
             else:
-                load_results = {"status": "仅归档用户提供荷载输入，未提供恒载与活载分项",
-                                "input_loads": load_input}
+                reason = "未提供 loads.dead 与 loads.live，荷载组合工具未调用；OpenSees 分析仍按 q_by_story_kN_per_m 输入单一静力荷载。"
+                _emit_tool_trace({"type": "tool_skipped", "tool": "calculate_load_combination",
+                                  "input": load_input, "reason": reason})
+                load_results = {"status": "skipped", "reason": reason, "input_loads": load_input}
         calculation_input = {
             "project_name": report["project_name"],
             "model_parameters": {
