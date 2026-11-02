@@ -608,31 +608,67 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
             break
         section_map = updated_map
 
-    # If the last loop upgraded sections at its end, its checks correspond to the
-    # previous model. Require a final analysis/check pass before claiming convergence.
+    # Persist the exact final-cycle member checks before handing the same records
+    # to the visualization tool. This keeps the downloadable archive and model
+    # inspector aligned even when the workflow does not converge.
     converged_checked = bool(history and status == "converged")
+    run_id = uuid4().hex
+    artifacts: dict[str, Any] = {}
+    artifact_errors: list[str] = []
+    if final_checks:
+        check_bundle = {
+            "schema": "steelmind.member-check-results.v1",
+            "run_id": run_id,
+            "project_name": req.get("project_name", "钢框架截面迭代与优化"),
+            "workflow_status": status,
+            "converged": converged_checked,
+            "iteration_count": len(history),
+            "member_count": len(final_checks),
+            "model_parameters": {
+                "geometry": req.get("geometry", {}),
+                "loads": req.get("loads", {}),
+                "material": req.get("material", {}),
+                "model_sections": req.get("model_sections", {}),
+                "final_sections": section_map,
+            },
+            "members": final_checks,
+        }
+        try:
+            from app import LocalArtifactStorage
+            storage = LocalArtifactStorage()
+            file_name = f"steel_member_checks_{run_id}.json"
+            file_content = json.dumps(check_bundle, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
+            artifact_key = storage.upload_file(file_content=file_content, file_name=file_name,
+                                               content_type="application/json; charset=utf-8")
+            artifacts["member_check_results"] = {
+                "artifacts": [{"kind": "member_check_results", "name": file_name,
+                               "media_type": "application/json", "url": storage.generate_presigned_url(key=artifact_key)}],
+                "run_id": run_id, "member_count": len(final_checks),
+            }
+        except Exception as exc:
+            artifact_errors.append(f"逐构件验算 JSON 保存失败：{type(exc).__name__}: {exc}")
+
     vis_result = ""
     try:
-        statuses = [{"member_id": c.get("member_id"), "member_type": c.get("member_type"),
-                     "passed": c.get("passed"), "section": c.get("section"), "steel": c.get("steel"),
-                     "span_m": c.get("span_m"), "demands": c.get("demands"), "checks": c.get("checks", []),
-                     "utilization": c.get("utilization"),
-                     "utilization_components": c.get("utilization_components"),
-                     "result": c.get("result_text", ""), "error": c.get("error")} for c in final_checks]
+        # Pass the complete same final records that were written to the JSON
+        # archive; the viewer joins them to physical members by member_id.
         vis_result = _tool_text("opensees_frame_visualize", {
             "parameters": final_analysis.get("parameters", {}),
-            "results": final_analysis.get("results", {}), "member_checks": statuses})
+            "results": final_analysis.get("results", {}),
+            "member_checks": final_checks,
+            "member_check_run_id": run_id,
+        })
     except Exception as exc:
         state.setdefault("errors", []).append(f"三维可视化生成失败：{exc}")
-    artifacts = {}
     final_sections = dict(section_map)
     for member in final_checks:
         final_sections[member["member_id"]] = member.get("section")
     report = {"project_name": req.get("project_name", "钢框架截面迭代与优化"), "status": status,
               "converged": converged_checked, "iterations": history, "final_sections": final_sections,
               "member_checks": final_checks, "analysis": final_analysis, "request": req,
-              "run_id": uuid4().hex,
+              "run_id": run_id,
               "visualization": vis_result, "artifacts": artifacts, "errors": state.get("errors", []),
+              "artifact_errors": artifact_errors,
               "engineering_notice": "本功能为二维线弹性单静力工况的方案级迭代原型。轴力采用绝对值包络，弱轴弯矩取零，计算长度暂按几何长度；当前 GB 50017 验算器仍含筛查性简化。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
     if converged_checked:
         try:
