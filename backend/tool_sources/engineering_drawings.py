@@ -233,6 +233,9 @@ def build_drawing_bundle(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def inspect_drawing_bundle(report: dict[str, Any]) -> dict[str, Any]:
+    from tool_sources.spatial_export import is_spatial_report, inspect_spatial_report
+    if is_spatial_report(report):
+        return inspect_spatial_report(report)
     try:
         bundle = report.get("construction_drawing_bundle") or build_drawing_bundle(report)
         validation = validate_bundle(bundle)
@@ -250,7 +253,7 @@ def inspect_drawing_bundle(report: dict[str, Any]) -> dict[str, Any]:
 
 @tool
 def generate_construction_drawing_package(payload: str) -> str:
-    """从工作流2收敛报告生成可追溯计算书、结果表和二维钢框架DXF方案图。"""
+    """从工作流2收敛报告生成可追溯计算书、结果表及二维或三维钢框架DXF方案图。"""
     try:
         request = json.loads(payload) if isinstance(payload, str) else dict(payload)
         report = request.get("final_report") or request.get("report") or {}
@@ -259,6 +262,26 @@ def generate_construction_drawing_package(payload: str) -> str:
             return json.dumps({"ok": False, "status": "input_invalid", "preflight": {k: v for k, v in preflight.items() if k != "bundle"}}, ensure_ascii=False)
         options = GenerationOptions.model_validate(request.get("options") or {})
         output_root = Path(os.getenv("STEELMIND_OUTPUT_ROOT", str(BACKEND_ROOT / "artifacts" / "engineering-export-runs")))
+        from tool_sources.spatial_export import is_spatial_report, generate_spatial_package
+        if is_spatial_report(report):
+            generation = generate_spatial_package(report, options.model_dump(), output_root)
+            if not generation.get("ok"):
+                return json.dumps(generation, ensure_ascii=False)
+            from app import LocalArtifactStorage
+            storage = LocalArtifactStorage()
+            run_root = Path(generation.pop("output_dir")).resolve()
+            for item in generation["artifacts"]:
+                source = (run_root / item["relative_path"]).resolve()
+                if not source.is_relative_to(run_root) or not source.is_file():
+                    raise ValueError("三维成果路径无效")
+                content = source.read_bytes()
+                import hashlib
+                if len(content) != item["bytes"] or hashlib.sha256(content).hexdigest() != item["sha256"]:
+                    raise ValueError("三维成果长度或哈希不一致")
+                key = storage.upload_file(file_content=content, file_name=item["name"], content_type=item["media_type"])
+                item["url"] = storage.generate_presigned_url(key=key)
+                item["preview_mode"] = "download_only" if item["name"] == "90_三维线框.dxf" else "planar" if item["name"].endswith(".dxf") else "document"
+            return json.dumps(generation, ensure_ascii=False)
         generation = generate_package(preflight["bundle"], options=options, output_dir=output_root)
         from app import LocalArtifactStorage
 

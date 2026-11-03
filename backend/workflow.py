@@ -16,6 +16,7 @@ from typing import Any, Callable, TypedDict
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableLambda
+from analysis_input import analysis_shape_errors
 
 
 _tool_trace_callback: ContextVar[Callable[[dict[str, Any]], None] | None] = ContextVar("steel_tool_trace_callback", default=None)
@@ -446,6 +447,9 @@ def run_workflow(request: dict[str, Any]) -> dict[str, Any]:
 
 def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
     req = state["request"]
+    shape_errors = analysis_shape_errors(req)
+    if shape_errors:
+        return {"status": "needs_input", "errors": shape_errors}
     from section_catalog import section_record
     geometry, loads = req.get("geometry") or {}, req.get("loads") or {}
     sections, candidates = req.get("model_sections") or {}, req.get("candidate_sections") or {}
@@ -891,6 +895,9 @@ def run_section_iteration(request: dict[str, Any]) -> dict[str, Any]:
 
 def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
     req = request
+    shape_errors = analysis_shape_errors(req)
+    if shape_errors:
+        return {"ok": False, "status": "needs_input", "errors": shape_errors, "report": {"validation": {"ok": False, "errors": shape_errors}}}
     from app import TOOLS
     from section_catalog import section_record
     raw = _tool_text("validate_steel_frame_parameters", req)
@@ -983,8 +990,10 @@ def _engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
     checks = report.get("member_checks") or []
     if not checks or any(not item.get("passed") for item in checks):
         return {"ok": False, "status": "checks_failed", "errors": ["最终报告缺少构件验算记录或存在未通过构件"]}
-    preflight = report.get("construction_drawing_preflight") or {}
-    if preflight.get("valid") is not True or not report.get("construction_drawing_bundle"):
+    # Validate the real final state again; browser snapshots may carry obsolete preflight flags.
+    from engineering_drawings import inspect_drawing_bundle
+    preflight = inspect_drawing_bundle(report)
+    if preflight.get("valid") is not True or not preflight.get("bundle"):
         return {"ok": False, "status": "export_input_invalid",
                 "errors": ["工作流2报告没有通过 DesignBundle 图纸输入预检；请查看 construction_drawing_preflight 后补充或重新分析"],
                 "preflight": preflight}
