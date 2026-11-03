@@ -35,7 +35,7 @@ python -m http.server 8080 --directory dist
 
 ## Token 与安全
 
-DeepSeek API Key 由使用者在页面中输入，只留在当前页面内存，不写入 `sessionStorage` 或源代码。聊天使用 OpenAI-compatible SSE 流式输出，生成中可点击“停止回答”中止当前请求。系统提示词可在左侧“系统提示词”面板查看、编辑、保存或恢复默认，内容保存于当前浏览器的 `localStorage`；API Key 不会随提示词保存。
+API Key 由使用者在页面中输入；默认勾选时只保存在当前浏览器标签页的 `sessionStorage`，刷新页面可恢复，关闭标签页后清除，不写入项目文件或仓库。聊天使用 OpenAI-compatible SSE 流式输出，生成中可点击“停止回答”中止当前请求。系统提示词可在左侧“系统提示词”面板查看、编辑、保存或恢复默认，内容保存于当前浏览器的 `localStorage`；API Key 不会随提示词保存。
 
 Python 工具由独立 FastAPI 网关提供，参阅 `backend/README.md`。线上网页填写的 `127.0.0.1` 指向访问者自己的电脑；公网使用需部署可访问的 HTTPS 网关，并配置来源白名单与服务端依赖。
 
