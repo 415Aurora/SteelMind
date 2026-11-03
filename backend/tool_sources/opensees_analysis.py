@@ -137,9 +137,9 @@ def _normalize(raw):
     member_sections = {}
     for member_id, value in (d.get("member_sections") or {}).items():
         mid = str(member_id).strip()
-        role = "column" if mid.startswith("C-") else "beam" if mid.startswith("B-") else None
+        role = "column" if mid.startswith("C-") else "beam" if mid.startswith(("B-", "BX-", "BZ-")) else None
         if not mid or role is None:
-            raise ValueError(f"逐构件截面编号 {member_id!r} 无效；编号需以 C- 或 B- 开头")
+            raise ValueError(f"逐构件截面编号 {member_id!r} 无效；编号需以 C-、B-、BX- 或 BZ- 开头")
         section_input = value if isinstance(value, dict) else {"name": str(value)}
         member_sections[mid] = _resolve_section({f"{role}_section": section_input.get("name") or section_input.get("section"),
                                                   f"{role}_properties": section_input}, role)
@@ -367,7 +367,8 @@ def _run_model(c):
             current = displacement(node)
             offset = tuple(current[i] - (d0[i] + (d1[i] - d0[i]) * ratio) for i in range(3))
             axial = sum(offset[i] * axis[i] for i in range(3))
-            transverse = tuple((offset[i] - axial * axis[i]) * 1000.0 for i in range(3))
+            # nodeDisp and offset already use the N-mm model units.
+            transverse = tuple(offset[i] - axial * axis[i] for i in range(3))
             deflections.append(math.sqrt(sum(value ** 2 for value in transverse)))
         fi, fj = forces[0], forces[-1]
         item = {key: value for key, value in member.items()

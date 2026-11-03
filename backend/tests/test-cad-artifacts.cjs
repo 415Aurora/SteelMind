@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(new URL('../../dist/index.html',`file://${__filename}`),'utf8');
+let loaded='';const nodes={'#cadUrl':{value:''},'#cadPanel':{},'#cadWorkspace':{scrollIntoView(){}}};
+const ctx={$:key=>nodes[key],document:{createElement:()=>({addEventListener(event,fn){this.click=fn}})},loadCadFromUrl:url=>loaded=url};vm.createContext(ctx);
+vm.runInContext(source.slice(source.indexOf('function artifactLinks('),source.indexOf("\n$('#loadCadUrl')",source.indexOf('function artifactLinks('))),ctx);
+const container={children:[],append(b){this.children.push(b)}};
+assert(ctx.addDxfArtifactAction({url:'http://localhost:8000/files/opaque',name:'01_XZ_层平面.dxf',preview_mode:'planar'},container),'DXF filename metadata must identify extensionless URL');
+container.children[0].click();assert.equal(loaded,'http://localhost:8000/files/opaque');assert(container.children[0].textContent.includes('01_XZ'));
+assert.equal(ctx.addDxfArtifactAction({url:'http://localhost:8000/files/model.dxf',name:'90_三维线框.dxf',preview_mode:'download_only'},container),false,'Raw XYZ model must not be flattened in browser');
+const parseCtx={};vm.createContext(parseCtx);vm.runInContext(source.slice(source.indexOf('function dxfPairs('),source.indexOf('function fitCadView(')),parseCtx);
+const dxf='0\nSECTION\n2\nENTITIES\n0\nLINE\n8\nS-MEMBER\n10\n0\n20\n0\n30\n0\n11\n6000\n21\n3000\n31\n0\n0\nLINE\n67\n1\n10\n0\n20\n0\n11\n420\n21\n297\n0\nENDSEC\n0\nEOF\n';
+assert.equal(parseCtx.parseDxf(dxf).lines.length,1,'Paper-space border must not contaminate model preview');
+assert.throws(()=>parseCtx.parseDxf(dxf.replace('31\n0','31\n6000')),/三维/,'XYZ file must not be silently flattened');
+console.log('CAD artifacts preserve metadata, preview planar views, exclude paperspace, and reject silent 3D flattening');

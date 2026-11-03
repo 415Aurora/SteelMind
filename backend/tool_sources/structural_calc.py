@@ -311,7 +311,7 @@ def check_steel_member(payload: str) -> str:
     utilization_components = {}
     res.append(f"=== 钢结构构件验算书（GB 50017-2017）===")
     res.append(f"构件类型: {member_type} | 截面: {section_name} | 钢材: {steel} (f={f} N/mm², fv={fv} N/mm²)")
-    res.append(f"截面特性: A={A:.0f} mm², Wx={Wx/1e3:.1f} cm³, Ix={Ix/1e6:.0f} cm⁴, ix={ix:.1f} mm, iy={iy:.1f} mm")
+    res.append(f"截面特性: A={A:.0f} mm², Wx={Wx/1e3:.1f} cm³, Ix={Ix/1e4:.0f} cm⁴, ix={ix:.1f} mm, iy={iy:.1f} mm")
     res.append("")
 
     # 强度验算
