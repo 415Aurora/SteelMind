@@ -48,8 +48,8 @@ python -m uvicorn app:app --app-dir 'C:\Users\Administrator\Desktop\小论文\AI
 | `tool_sources/structural_calc.py` | `validate_steel_frame_parameters`、`query_steel_sections`、`calculate_load_combination`、`check_steel_member`；另有旧兼容工具 `optimize_steel_truss_members` |
 | `tool_sources/q235_section_optimizer.py`、`tool_sources/Q235_钢结构强度选截面工具/steel_section_optimizer.py` | `optimize_q235_steel_sections` Agent 适配器与原始离散选截面算法；可接收内力样本或本项目 OpenSees 的 `end_forces_local`，对311个Q235焊接截面作强度筛选 |
 | `section_catalog.py`、`steel_sections.json`、`tool_sources/截面库.csv` | 统一检索与设计属性接口：430个 GB/T 11263-2024 热轧H型钢 + 311个本地Q235焊接H型截面，共741个记录。热轧记录存 JSON，焊接数据运行时从CSV合并；焊接型号加 `WH-` 前缀，避免与4个同名但尺寸/特性不同的热轧记录混淆。`scripts/build_section_catalog.py` 从本地规范 PDF 重建热轧JSON核心库 |
-| `tool_sources/opensees_analysis.py` | `opensees_frame_verify`：参数化二维钢框架 OpenSeesPy 建模与静力分析；为成果导出返回实体节点、位移、支座反力、杆件节点关系和局部端力 |
-| `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：按 X/Z 双向跨数与跨度生成空间几何展示、构件验算着色和截面图形数据；当前 OpenSees 求解器仍为二维，不把面外几何当作计算结果 |
+| `tool_sources/opensees_analysis.py` | `opensees_frame_verify`：参数化 X-Z 双向三维钢框架 OpenSeesPy 建模与静力分析；返回三维位移/反力、轴力、双向剪力、双向弯矩、扭矩、挠度及独立脚本 |
+| `tool_sources/opensees_visualize.py` | `opensees_frame_visualize`、`draw_steel_section`：展示空间几何，并按三维 OpenSees 构件编号着色及显示验算结果、截面图形数据 |
 | `tool_sources/generate_design_files.py` | `generate_calculation_book`、`generate_design_outputs`：生成计算书及 Excel/Word/DXF 文件 |
 | `tool_sources/engineering_drawings.py` | `generate_construction_drawing_package`：把工作流2最终报告映射为严格的 DesignBundle、预检数据、生成成果包并转成网关下载链接 |
 | `engineering_export/src/steelmind_export/` | 新接入的成果生成组件：DesignBundle 契约、输入/覆盖校核、计算书与结果表、DXF/PDF 图纸、成果清单/哈希/ZIP；随包保留 README、测试、示例和中文字体授权 |
@@ -121,9 +121,9 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 }
 ```
 
-`opensees_frame_verify` 将每根梁/柱离散为 8 段，返回稳定的构件编号（例如 `B-S1-G1`、`C-S1-G1`）、截面、钢材、几何长度、暂定计算长度、分段端部局部力、轴力/弯矩/剪力包络及构件弦线相对横向变形。工作流将这些值交给 `check_steel_member` 逐根验算，并在结果中提供机器可读 `passed`、验算项明细和计算文字；最终记录保存为 JSON 和 `validate_result.csv`，工作流页面提供 CSV 下载，三维模型内的“读取验算 CSV”按钮可自动读取该次结果，也可手动选择 CSV。可视化按 OpenSees 构件编号匹配验算记录。工程文件现在由第三条工作流独立输出。
+`opensees_frame_verify` 建立 `-ndm 3 -ndf 6` 的 X-Z 空间钢框架，每根实体梁/柱离散为 8 段，返回稳定构件编号（例如 `BX-S1-Z1-G1`、`BZ-S1-X1-G1`、`C-S1-X1-Z1`）、截面、钢材、几何长度、暂定计算长度、分段端部局部力、轴力/双向弯矩/双向剪力/扭矩包络、节点 XYZ 位移与构件三维弦线相对横向变形。工作流将这些值交给 `check_steel_member` 逐根验算，并提供机器可读 `passed`、验算项明细和计算文字；最终记录保存为 JSON 和 `validate_result.csv`，工作流页面提供 CSV 下载，三维模型内的“读取验算 CSV”按钮可自动读取该次结果，也可手动选择 CSV。可视化按 OpenSees 构件编号匹配验算记录，变形显示读取 XYZ 三向节点位移。工程文件现在由第三条工作流独立输出。
 
-重要边界：当前分析是二维、线弹性、单次静力工况；弱轴弯矩在平面模型中取 0，轴力按绝对值包络保守传递，计算长度暂按构件几何长度。层间位移角被输出但因未输入项目限值，不自动判定合格。挠度限值使用工具缺省值，须按用途和适用规范核对。当前截面库范围为 GB/T 11263-2024 附录A表A.1热轧H型钢，不包括T、槽钢、角钢、圆/矩形管和焊接自定义截面；型钢表列值用于计算，腹板剪切面积的一阶矩采用矩形近似并在工具中标明。此原型不等同多荷载组合包络、完整 GB 50017 设计验算或工程审查，不能据此作安全结论。
+重要边界：当前 OpenSees 已建立 X-Z 双向三维弹性框架，仍为单次静力工况；X/Z 方向线荷载与层水平力须分别输入，未自动生成楼板刚性隔板、楼面荷载分配或自重。H截面扭转常数 J 采用薄壁近似，截面主轴朝向按工具内固定局部坐标约定，计算长度暂按构件几何长度。层间位移角被输出但因未输入项目限值，不自动判定合格。挠度限值使用工具缺省值，须按用途和适用规范核对。当前截面库范围为 GB/T 11263-2024 附录A表A.1热轧H型钢，不包括T、槽钢、角钢、圆/矩形管和焊接自定义截面；型钢表列值用于计算，腹板剪切面积的一阶矩采用矩形近似并在工具中标明。DesignBundle/DXF 导出器仍为二维，不会将三维模型压扁成二维图纸；需后续升级。此原型不等同多荷载组合包络、完整 GB 50017 设计验算或工程审查，不能据此作安全结论。
 
 ## 三条设计工作流
 
@@ -136,7 +136,7 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 截面迭代工作流由 LCEL 协调以下有界循环：
 
 1. 读取框架几何、线荷载、钢材、初始梁柱截面和梁/柱候选截面序列；
-2. 调用 OpenSeesPy，按当前逐构件截面建立平面框架并重新分析；
+2. 调用 OpenSeesPy，按当前逐构件截面建立 X-Z 双向空间框架并重新分析；
 3. 对 OpenSees 返回的每根梁柱调用 GB 50017 构件验算工具；
 4. 首轮遍历候选截面，读取各验算项利用率，优先选择验算通过且最接近目标利用率（默认 0.85）的截面；更新全框架逐构件截面后重新运行 OpenSees；后续若重分析后出现不通过，只向更大截面调整，避免截面来回振荡；
 5. 仅当“实际用于最终 OpenSees 分析的截面”逐构件验算均通过时标记 `converged`。候选耗尽、调用失败或迭代上限则返回 `needs_revision`、`failed` 或 `max_iterations`，并附轮次、截面变化、结果可视化与计算书（如工具可用）。
@@ -158,7 +158,7 @@ python -m pip install -r "C:\Users\Administrator\Desktop\小论文\AIwork\steel-
 }
 ```
 
-这是以利用率目标为引导的离散截面候选筛选与结构重分析，不是包含全局质量目标、构件组约束和多工况包络的连续数学优化器。OpenSees 目前为二维线弹性、单静力工况，轴力取绝对值包络、弱轴弯矩取零、计算长度暂按构件几何长度；钢构件验算器中若干稳定/板件检查仍为筛查性实现。`converged` 只说明该模型输入和已实现检查项未报告失败，不能宣称完整符合规范或直接用于施工。
+这是以利用率目标为引导的离散截面候选筛选与结构重分析，不是包含全局质量目标、构件组约束和多工况包络的连续数学优化器。OpenSees 为三维线弹性、单静力工况；截面 J 为薄壁近似、未定义楼板刚性隔板，计算长度暂按构件几何长度；钢构件验算器中若干稳定/板件检查仍为筛查性实现。`converged` 只说明该模型输入和已实现检查项未报告失败，不能宣称完整符合规范或直接用于施工。
 
 ```powershell
 $env:COZE_BUCKET_ENDPOINT_URL = 'https://你的对象存储端点'

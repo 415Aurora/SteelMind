@@ -88,11 +88,12 @@ def _validate(state: WorkflowState) -> dict[str, Any]:
     geometry = req.get("geometry") or {}
     loads = req.get("loads") or {}
     missing = []
-    for key in ("bays", "stories"):
-        if geometry.get(key) in (None, ""):
-            missing.append(f"geometry.{key}")
-    if geometry.get("bay_widths_m") is None and geometry.get("bay_m") in (None, ""):
-        missing.append("geometry.bay_m 或 geometry.bay_widths_m")
+    if geometry.get("bays_x", geometry.get("bays")) in (None, ""):
+        missing.append("geometry.bays_x")
+    if geometry.get("stories") in (None, ""):
+        missing.append("geometry.stories")
+    if geometry.get("bay_widths_x_m") is None and geometry.get("bay_widths_m") is None and geometry.get("bay_m") in (None, ""):
+        missing.append("geometry.bay_widths_x_m 或 geometry.bay_m")
     if geometry.get("story_heights_m") is None and geometry.get("height_m") in (None, ""):
         missing.append("geometry.height_m 或 geometry.story_heights_m")
     has_line_load = loads.get("q_by_story_kN_per_m") is not None or loads.get("q_kNm") is not None
@@ -102,8 +103,8 @@ def _validate(state: WorkflowState) -> dict[str, Any]:
         msg = "缺少必要输入：" + ", ".join(missing)
         return {"status": "needs_input", "errors": [msg], "log": _log(state, "参数检查", "failed", msg)}
     try:
-        if any(float(geometry[k]) <= 0 for k in ("bays", "stories")):
-            raise ValueError("跨数、层数、跨度和高度必须大于 0")
+        if float(geometry.get("bays_x", geometry.get("bays"))) <= 0 or int(geometry.get("bays_z", 1)) <= 0 or float(geometry["stories"]) <= 0:
+            raise ValueError("X/Z 向跨数、层数、跨度和高度必须大于 0")
         if geometry.get("bay_m") is not None and float(geometry["bay_m"]) <= 0:
             raise ValueError("跨度必须大于 0")
         if geometry.get("height_m") is not None and float(geometry["height_m"]) <= 0:
@@ -113,7 +114,7 @@ def _validate(state: WorkflowState) -> dict[str, Any]:
     except (TypeError, ValueError) as exc:
         msg = f"参数检查失败：{exc}"
         return {"status": "needs_input", "errors": [msg], "log": _log(state, "参数检查", "failed", msg)}
-    msg = "几何与基本荷载字段齐全；仍需工程师确认单位、荷载取值及模型假设。"
+    msg = "三维几何与基本荷载字段齐全；仍需工程师确认双向荷载分配、单位与模型假设。"
     return {"status": "running", "log": _log(state, "参数检查", "ok", msg)}
 
 
@@ -327,11 +328,13 @@ def _generate(state: WorkflowState) -> dict[str, Any]:
         {"title": "验算汇总", "body": f"总构件数：{len(final_checks)}；通过：{len(passing)}；未通过：{len(failed)}。\n未通过构件：{', '.join(str(c.get('member_id')) for c in failed) or '无'}"},
     ]
     conclusion = (f"构件验算完成：{len(passing)} 根通过，{len(failed)} 根未通过。" if failed else "全部构件已完成当前验算项。") + "结果仅供方案研究与计算准备，须由具备资质的工程师核查模型、荷载组合、规范条文适用性及全部计算。"
-    output_data = {"project_name": name, "bays": geometry.get("bays", 1), "bay_m": geometry.get("bay_m", 6),
+    output_data = {"project_name": name, "bays": geometry.get("bays_x", geometry.get("bays", 1)),
+                   "bays_x": geometry.get("bays_x", geometry.get("bays", 1)), "bays_z": geometry.get("bays_z", 1),
+                   "bay_m": geometry.get("bay_m", 6),
                    "height_m": geometry.get("height_m", 6), "sections": [{"title": "流程结果", "items": [
                        {"name": "荷载组合", "symbol": "load_combo", "value": "已生成", "note": "详见计算书"},
                        {"name": "构件验算", "symbol": "member_check", "value": f"通过 {len(passing)} 项", "note": "只按提交的输入和候选截面检查"},
-                       {"name": "OpenSeesPy", "symbol": "analysis", "value": "已完成", "note": "线弹性平面框架验证模型"},
+                       {"name": "OpenSeesPy", "symbol": "analysis", "value": "已完成", "note": "线弹性空间框架验证模型"},
                    ]}], "conclusion": conclusion}
     artifacts: dict[str, str] = {}
     try:
@@ -411,7 +414,7 @@ def _finish(state: WorkflowState) -> dict[str, Any]:
         "check_history": state.get("checks", []),
         "artifacts": state.get("artifacts", {}),
         "errors": state.get("errors", []),
-        "engineering_notice": "该流程是计算辅助原型，不等同完整结构设计。当前 OpenSees 工具为简化线弹性二维框架，不能据此签发施工图或作安全结论。",
+        "engineering_notice": "该流程是计算辅助原型，不等同完整结构设计。当前 OpenSees 工具为三维线弹性单静力工况，扭转常数J按薄壁H截面近似，不能据此签发施工图或作安全结论。",
     }
     return {"report": report, "log": _log(state, "流程结束", state.get("status", "completed"), "工作流执行结束")}
 
@@ -445,15 +448,24 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
     from section_catalog import section_record
     geometry, loads = req.get("geometry") or {}, req.get("loads") or {}
     sections, candidates = req.get("model_sections") or {}, req.get("candidate_sections") or {}
-    missing = [key for key in ("bays", "stories") if geometry.get(key) in (None, "")]
-    if geometry.get("bay_widths_m") is None and geometry.get("bay_m") in (None, ""):
-        missing.append("geometry.bay_m / bay_widths_m")
+    missing = []
+    if geometry.get("bays_x", geometry.get("bays")) in (None, ""):
+        missing.append("geometry.bays_x")
+    if geometry.get("stories") in (None, ""):
+        missing.append("geometry.stories")
+    if geometry.get("bay_widths_x_m") is None and geometry.get("bay_widths_m") is None and geometry.get("bay_m") in (None, ""):
+        missing.append("geometry.bay_m / bay_widths_x_m")
     if geometry.get("story_heights_m") is None and geometry.get("height_m") in (None, ""):
         missing.append("geometry.height_m / story_heights_m")
     if loads.get("q_by_story_kN_per_m") is None and loads.get("q_kNm") is None:
         missing.append("loads.q_by_story_kN_per_m")
     if missing:
         return {"status": "needs_input", "errors": ["缺少必要输入：" + ", ".join(missing)]}
+    try:
+        if float(geometry.get("bays_x", geometry.get("bays"))) <= 0 or int(geometry.get("bays_z", 1)) <= 0 or float(geometry["stories"]) <= 0:
+            raise ValueError("X/Z 向跨数和层数必须大于 0")
+    except (TypeError, ValueError) as exc:
+        return {"status": "needs_input", "errors": [f"几何参数无效：{exc}"]}
     for role in ("beam", "column"):
         initial = sections.get(f"{role}_section") or (sections.get(role) or {}).get("name")
         values = candidates.get(role)
@@ -494,7 +506,7 @@ def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
     fields = [
         "member_id", "member_type", "section", "steel",
         "stress_check_result", "deflection_check_result", "stability_check_result",
-        "Mx_kNm", "My_kNm", "N_kN", "V_kN", "calculation_length_m",
+        "Mx_kNm", "My_kNm", "N_kN", "V_kN", "Vy_kN", "Vz_kN", "T_kNm", "calculation_length_m",
         "deflection_mm", "max_stress_N_mm2", "overall_passed", "check_details",
     ]
 
@@ -525,6 +537,9 @@ def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
             "My_kNm": demands.get("My_kNm", ""),
             "N_kN": demands.get("N_kn", ""),
             "V_kN": demands.get("V_kn", ""),
+            "Vy_kN": demands.get("Vy_kn", ""),
+            "Vz_kN": demands.get("Vz_kn", ""),
+            "T_kNm": demands.get("T_kNm", ""),
             "calculation_length_m": max(lengths) if lengths else "",
             "deflection_mm": demands.get("deflection_mm", ""),
             "max_stress_N_mm2": member.get("max_stress_N_mm2", ""),
@@ -593,7 +608,13 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
                 "span_m": member.get("span_m"), "l0x_m": member.get("l0x_m", member.get("span_m")),
                 "l0y_m": member.get("l0y_m", member.get("span_m")),
                 "N_kn": member.get("N_kn", 0), "Mx_kNm": member.get("Mx_kNm", 0),
-                "My_kNm": member.get("My_kNm", 0), "V_kn": member.get("V_kn", 0),
+                "My_kNm": member.get("My_kNm", 0),
+                "V_kn": math.hypot(float(member.get("Vy_kn", member.get("V_kn", 0)) or 0),
+                                   float(member.get("Vz_kn", 0) or 0)),
+                "Vy_kn": member.get("Vy_kn", member.get("V_kn", 0)),
+                "Vz_kn": member.get("Vz_kn", 0), "T_kNm": member.get("T_kNm", 0),
+                "Vy_kn": member.get("Vy_kn", member.get("V_kn", 0)),
+                "Vz_kn": member.get("Vz_kn", 0), "T_kNm": member.get("T_kNm", 0),
                 "deflection_mm": member.get("deflection_mm", 0),
                 "structured_output": True, "iteration": iteration,
             }
@@ -645,7 +666,9 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
                     selected, selected_check = current, current_result
             iteration_checks.append({**selected_check, "member_id": mid, "member_type": role,
                                      "section": selected, "analysis_section": current,
-                                     "analysis_demands": {key: member.get(key) for key in ("N_kn", "Mx_kNm", "My_kNm", "V_kn", "deflection_mm")}})
+                                     "l0x_m": member.get("l0x_m", member.get("span_m")),
+                                     "l0y_m": member.get("l0y_m", member.get("span_m")),
+                                     "analysis_demands": {key: member.get(key) for key in ("N_kn", "Mx_kNm", "My_kNm", "V_kn", "Vy_kn", "Vz_kn", "T_kNm", "deflection_mm")}})
 
         all_pass_current = all(item.get("passed", False) for item in iteration_checks)
         history.append({"iteration": iteration, "analyzed_sections": {m["member_id"]: section_map.get(m["member_id"], m["section"]) for m in analyzed_members},
@@ -748,7 +771,7 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
               "run_id": run_id,
               "visualization": vis_result, "artifacts": artifacts, "errors": state.get("errors", []),
               "artifact_errors": artifact_errors,
-              "engineering_notice": "本功能为二维线弹性单静力工况的方案级迭代原型。轴力采用绝对值包络，弱轴弯矩取零，计算长度暂按几何长度；当前 GB 50017 验算器仍含筛查性简化。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
+              "engineering_notice": "本功能为三维线弹性单静力工况的方案级迭代原型。截面主轴方向由局部坐标约定；H截面扭转常数J采用薄壁近似；内力取分段端部包络，计算长度暂按构件几何长度。当前 GB 50017 验算器仍含筛查性简化，且扭转载荷效应未纳入规范验算。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
     if converged_checked:
         try:
             from engineering_drawings import inspect_drawing_bundle
@@ -887,7 +910,11 @@ def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
                 "steel": material.get("steel_grade", "Q355"), "span_m": member.get("span_m"),
                 "l0x_m": member.get("l0x_m", member.get("span_m")), "l0y_m": member.get("l0y_m", member.get("span_m")),
                 "N_kn": member.get("N_kn", 0), "Mx_kNm": member.get("Mx_kNm", 0),
-                "My_kNm": member.get("My_kNm", 0), "V_kn": member.get("V_kn", 0),
+                "My_kNm": member.get("My_kNm", 0),
+                "V_kn": math.hypot(float(member.get("Vy_kn", member.get("V_kn", 0)) or 0),
+                                   float(member.get("Vz_kn", 0) or 0)),
+                "Vy_kn": member.get("Vy_kn", member.get("V_kn", 0)),
+                "Vz_kn": member.get("Vz_kn", 0), "T_kNm": member.get("T_kNm", 0),
                 "deflection_mm": member.get("deflection_mm", 0), "structured_output": True,
             }
             result = json.loads(_tool_text("check_steel_member", check_payload))

@@ -35,15 +35,19 @@ def validate_steel_frame_parameters(payload: str) -> str:
         sections = data.get("model_sections") or {}
         candidates = data.get("candidate_sections") or {}
         errors = []
-        for key in ("bays", "stories"):
-            value = int(geometry.get(key, 0))
+        bays_x = int(geometry.get("bays_x", geometry.get("bays", 0)))
+        bays_z = int(geometry.get("bays_z", 1))
+        stories = int(geometry.get("stories", 0))
+        for key, value in (("bays_x", bays_x), ("bays_z", bays_z), ("stories", stories)):
             if value < 1:
                 errors.append(f"geometry.{key} 必须是正整数")
-        bays, stories = int(geometry.get("bays", 0)), int(geometry.get("stories", 0))
-        widths = geometry.get("bay_widths_m") or [geometry.get("bay_m")]
+        widths_x = geometry.get("bay_widths_x_m") or geometry.get("bay_widths_m") or [geometry.get("bay_m")]
+        widths_z = geometry.get("bay_widths_z_m") or [geometry.get("bay_depth_m", 6)]
         heights = geometry.get("story_heights_m") or [geometry.get("height_m")]
-        if len(widths) not in (1, bays) or any(v in (None, "") or float(v) <= 0 for v in widths):
-            errors.append("各跨跨度必须为正数，数量为 1 或与跨数一致")
+        if len(widths_x) not in (1, bays_x) or any(v in (None, "") or float(v) <= 0 for v in widths_x):
+            errors.append("X 向各跨跨度必须为正数，数量为 1 或与 X 向跨数一致")
+        if len(widths_z) not in (1, bays_z) or any(v in (None, "") or float(v) <= 0 for v in widths_z):
+            errors.append("Z 向各跨跨度必须为正数，数量为 1 或与 Z 向跨数一致")
         if len(heights) not in (1, stories) or any(v in (None, "") or float(v) <= 0 for v in heights):
             errors.append("各层层高必须为正数，数量为 1 或与层数一致")
         if loads.get("dead") in (None, "") or loads.get("live") in (None, ""):
@@ -56,6 +60,9 @@ def validate_steel_frame_parameters(payload: str) -> str:
             errors.append("请提供用于 OpenSees 初算的 loads.q_by_story_kN_per_m")
         elif isinstance(q, list) and (len(q) not in (1, stories) or any(float(v) < 0 for v in q)):
             errors.append("逐层线荷载应为非负数，数量为 1 或与层数一致")
+        qz = loads.get("q_z_by_story_kN_per_m", 0)
+        if (isinstance(qz, list) and (len(qz) not in (1, stories) or any(float(v) < 0 for v in qz))) or (isinstance(qz, (int, float)) and qz < 0):
+            errors.append("Z 向逐层线荷载应为非负数，数量为 1 或与层数一致")
         if not material.get("steel_grade"):
             errors.append("请填写 material.steel_grade")
         for role in ("beam", "column"):
@@ -415,7 +422,10 @@ def check_steel_member(payload: str) -> str:
             "span_m": span, "l0x_m": l0x, "l0y_m": l0y,
             "max_stress_N_mm2": max_stress,
             "demands": {"N_kn": N / 1e3, "Mx_kNm": Mx / 1e6,
-            "My_kNm": My / 1e6, "V_kn": V / 1e3, "deflection_mm": defl_mm},
+            "My_kNm": My / 1e6, "V_kn": V / 1e3,
+            "Vy_kn": abs(float(d.get("Vy_kn", V / 1e3))),
+            "Vz_kn": abs(float(d.get("Vz_kn", 0))),
+            "T_kNm": abs(float(d.get("T_kNm", 0))), "deflection_mm": defl_mm},
             "utilization": max(utilization_components.values(), default=0.0),
             "utilization_components": utilization_components,
             "passed": all(item["passed"] for item in checks), "checks": checks,

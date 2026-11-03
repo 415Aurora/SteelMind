@@ -55,6 +55,8 @@ def build_drawing_bundle(report: dict[str, Any]) -> dict[str, Any]:
     nodes = result.get("model_nodes") or []
     supports = result.get("supports") or []
     reactions = result.get("support_reactions") or []
+    if int(geometry.get("bays_z", 0) or 0) > 0 or any(abs(float(node.get("z_m", 0) or 0)) > 1e-9 for node in nodes):
+        raise ValueError("当前 DesignBundle/DXF 导出器仍只支持二维框架坐标；三维分析结果已保留，但不会压扁成二维图纸。")
     if not nodes or not raw_members or not supports:
         raise ValueError("OpenSees 报告缺少节点位移、实体杆件或支座信息；请用新版分析工具重新运行工作流2")
     if len(raw_members) != len(member_checks):
