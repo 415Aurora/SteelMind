@@ -533,6 +533,15 @@ def download_artifact(artifact_id: str) -> FileResponse:
     return FileResponse(path, filename=path.name.split("_", 1)[1])
 
 
+@app.get("/artifacts/validate_result.csv")
+def download_latest_validation_csv() -> FileResponse:
+    """Download the deterministic local copy of the most recent workflow CSV."""
+    path = (ARTIFACT_DIR / "validate_result.csv").resolve()
+    if path.parent != ARTIFACT_DIR or not path.is_file():
+        raise HTTPException(status_code=404, detail="尚未生成本地 validate_result.csv；请先运行工作流 2")
+    return FileResponse(path, media_type="text/csv; charset=utf-8", filename="validate_result.csv")
+
+
 @app.post("/invoke/{tool_name}")
 def invoke(tool_name: str, request: InvokeRequest) -> dict[str, Any]:
     if tool_name not in TOOL_SPECS:

@@ -9,6 +9,7 @@ import json
 import csv
 import io
 import math
+import os
 import re
 from contextvars import ContextVar, Token
 from typing import Any, Callable, TypedDict
@@ -505,6 +506,8 @@ def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
     """Serialize final per-member checks to an Excel-friendly UTF-8 CSV."""
     fields = [
         "member_id", "member_type", "section", "steel",
+        "h_mm", "b_mm", "tw_mm", "tf_mm", "A_mm2", "Ix_mm4", "Iy_mm4",
+        "root_radius_mm", "catalog_standard", "catalog_id",
         "stress_check_result", "deflection_check_result", "stability_check_result",
         "Mx_kNm", "My_kNm", "N_kN", "V_kN", "Vy_kN", "Vz_kN", "T_kNm", "calculation_length_m",
         "deflection_mm", "max_stress_N_mm2", "overall_passed", "check_details",
@@ -516,12 +519,17 @@ def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
             return "未验算"
         return "通过" if all(item.get("passed") is True for item in matching) else "未通过"
 
+    try:
+        from section_catalog import section_record
+    except Exception:
+        section_record = lambda _name: None
     output = io.StringIO(newline="")
     writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore", lineterminator="\n")
     writer.writeheader()
     for member in checks:
         demands = member.get("demands") or member.get("analysis_demands") or {}
         details = member.get("checks") or []
+        section_data = section_record(str(member.get("section") or "")) or {}
         lengths = [float(member[key]) for key in ("l0x_m", "l0y_m") if _is_finite_number(member.get(key))]
         if not lengths and _is_finite_number(member.get("span_m")):
             lengths = [float(member["span_m"])]
@@ -530,6 +538,13 @@ def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
             "member_type": member.get("member_type", ""),
             "section": member.get("section", ""),
             "steel": member.get("steel", ""),
+            "h_mm": section_data.get("h_mm", ""), "b_mm": section_data.get("b_mm", ""),
+            "tw_mm": section_data.get("tw_mm", ""), "tf_mm": section_data.get("tf_mm", ""),
+            "A_mm2": section_data.get("area_mm2", ""), "Ix_mm4": section_data.get("Ix_mm4", ""),
+            "Iy_mm4": section_data.get("Iy_mm4", ""),
+            "root_radius_mm": section_data.get("root_radius_mm", ""),
+            "catalog_standard": section_data.get("catalog_standard", ""),
+            "catalog_id": section_data.get("id", ""),
             "stress_check_result": group_status(details, ("强度", "抗剪", "σ =", "σ=")),
             "deflection_check_result": group_status(details, ("挠度", "变形")),
             "stability_check_result": group_status(details, ("稳定", "长细比", "局部")),
@@ -727,12 +742,27 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             artifact_errors.append(f"逐构件验算 JSON 保存失败：{type(exc).__name__}: {exc}")
 
+        file_name = "validate_result.csv"
+        csv_content = _validation_csv(final_checks)
+        validation_csv_text = csv_content.decode("utf-8-sig")
+        try:
+            from app import ARTIFACT_DIR
+            ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+            local_csv_path = ARTIFACT_DIR / file_name
+            pending_csv_path = ARTIFACT_DIR / f".validate_result.{run_id}.tmp"
+            pending_csv_path.write_bytes(csv_content)
+            pending_csv_path.replace(local_csv_path)
+            local_csv_url = os.getenv("STEEL_TOOL_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/") + "/artifacts/validate_result.csv"
+            artifacts["member_check_csv"] = {
+                "local_path": str(local_csv_path), "local_url": local_csv_url,
+                "run_id": run_id, "member_count": len(final_checks),
+            }
+        except Exception as exc:
+            artifact_errors.append(f"逐构件验算 CSV 本地保存失败：{type(exc).__name__}: {exc}")
+
         try:
             from app import LocalArtifactStorage
             storage = LocalArtifactStorage()
-            file_name = "validate_result.csv"
-            csv_content = _validation_csv(final_checks)
-            validation_csv_text = csv_content.decode("utf-8-sig")
             artifact_key = storage.upload_file(
                 file_content=csv_content,
                 file_name=file_name,
@@ -744,6 +774,8 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
                     "media_type": "text/csv", "url": storage.generate_presigned_url(key=artifact_key),
                 }],
                 "run_id": run_id, "member_count": len(final_checks),
+                "local_path": artifacts.get("member_check_csv", {}).get("local_path"),
+                "local_url": artifacts.get("member_check_csv", {}).get("local_url"),
             }
         except Exception as exc:
             artifact_errors.append(f"逐构件验算 CSV 保存失败：{type(exc).__name__}: {exc}")
