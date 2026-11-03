@@ -281,6 +281,7 @@ def check_steel_member(payload: str) -> str:
     My = abs(float(d.get("My_kNm", 0))) * 1e6
     V = abs(float(d.get("V_kn", 0))) * 1e3    # N
     N = float(d.get("N_kn", 0)) * 1e3         # N
+    has_deflection_input = "deflection_mm" in d and d.get("deflection_mm") is not None
     defl_mm = float(d.get("deflection_mm", 0))
     defl_ratio = d.get("deflection_ratio", "l/400")
     if "/" in defl_ratio:
@@ -316,6 +317,7 @@ def check_steel_member(payload: str) -> str:
         sigma_bx = Mx / (1.05 * Wx)
         sigma_by = My / (1.2 * Wy)
         sigma = sigma_n + sigma_bx + sigma_by
+        max_stress = abs(sigma)
         utilization_components["截面强度"] = sigma / f
         res.append(f"  σ = N/A + Mx/(γx·Wx) + My/(γy·Wy) = {sigma_n:.1f}+{sigma_bx:.1f}+{sigma_by:.1f} = {sigma:.1f} N/mm² {'✓ ≤ f='+str(f) if sigma<=f else '✗ > f='+str(f)}")
 
@@ -328,10 +330,14 @@ def check_steel_member(payload: str) -> str:
             N_ex = math.pi ** 2 * 206000 * A / (1.1 * lam_x ** 2)
             denom = 1 - 0.8 * N / N_ex if N_ex > 0 else -1.0
             stress_in = (N / (phi_x * A) + beta_mx * Mx / (1.05 * Wx * denom)) if denom > 0 else math.inf
+            if math.isfinite(stress_in):
+                max_stress = max(max_stress, abs(stress_in))
             utilization_components["平面内整体稳定筛查"] = stress_in / f if math.isfinite(stress_in) else 1.0e9
             res.append(f"  λx={lam_x:.1f}→φx({d.get('section_class_x', 'b')}类)={phi_x:.3f}，λy={lam_y:.1f}→φy({d.get('section_class_y', 'c')}类)={phi_y:.3f}")
             res.append(f"  平面内整体稳定筛查: σ=N/(φx·A)+βmx·Mx/[γx·Wx·(1-0.8N/N'ex)] = {stress_in:.1f} N/mm² {'✓' if stress_in<=f else '✗'}（βmx={beta_mx:g}）")
             stress_plan = N / (phi_y * A) + My / (1.2 * Wy)
+            if math.isfinite(stress_plan):
+                max_stress = max(max_stress, abs(stress_plan))
             utilization_components["平面外整体稳定筛查"] = stress_plan / f
             res.append(f"  平面外整体稳定简化筛查: σ=N/(φy·A)+My/(1.2·Wy) ≈ {stress_plan:.1f} N/mm² {'✓' if stress_plan<=f else '✗'}；双向压弯/侧扭耦合仍需按GB 50017第6.2节复核")
         else:
@@ -342,7 +348,7 @@ def check_steel_member(payload: str) -> str:
         lam_lim = 180 if (N / A) < (0.4 * f) else 150
         utilization_components["长细比"] = lam_max / lam_lim
         res.append(f"  长细比验算: max(λx,λy)={lam_max:.1f} ≤ [{lam_lim}] {'✓' if lam_max<=lam_lim else '✗'}")
-        if defl_mm > 0:
+        if has_deflection_input:
             allow = span * 1000 / defl_den
             utilization_components["构件变形"] = defl_mm / allow
             res.append(f"  构件横向变形验算: v={defl_mm:.1f}mm ≤ [{defl_ratio}]={allow:.1f}mm {'✓' if defl_mm<=allow else '✗'}（不替代整体层间位移角验算）")
@@ -350,6 +356,7 @@ def check_steel_member(payload: str) -> str:
         # 受弯构件
         lam_y = l0y * 1000 / iy
         sigma = abs(N) / A + Mx / (1.05 * Wx) + My / (1.2 * Wy)
+        max_stress = abs(sigma)
         tau = V * sec["Sx"] / (Ix * tw) if V > 0 else 0
         utilization_components["截面强度"] = sigma / f
         utilization_components["抗剪"] = tau / fv
@@ -362,11 +369,13 @@ def check_steel_member(payload: str) -> str:
         phi_b = _beam_phi_b(sec, l0y * 1000, fy,
                             float(d.get("beta_b", 1.0)), float(d.get("eta_b", 0.0)))
         sigma_stab = Mx / (phi_b * Wx) + My / (1.2 * Wy) if phi_b > 0 else math.inf
+        if math.isfinite(sigma_stab):
+            max_stress = max(max_stress, abs(sigma_stab))
         utilization_components["整体稳定筛查"] = sigma_stab / f if math.isfinite(sigma_stab) else 1.0e9
         res.append(f"  整体稳定筛查: λy={lam_y:.1f}→φb={phi_b:.3f}, σ=Mx/(φb·Wx)+My/(1.2·Wy)={sigma_stab:.1f} N/mm² {'✓' if sigma_stab<=f else '✗'}；侧向支承及双向受弯条件须按附录C复核")
         # 挠度
         allow = span * 1000 / defl_den
-        if defl_mm > 0:
+        if has_deflection_input:
             utilization_components["挠度"] = defl_mm / allow
             res.append(f"  挠度验算: v={defl_mm:.1f}mm ≤ [{defl_ratio}]={allow:.1f}mm {'✓' if defl_mm<=allow else '✗'}")
 
@@ -403,7 +412,9 @@ def check_steel_member(payload: str) -> str:
                   for line in res if "✓" in line or "✗" in line]
         return json.dumps({"ok": True, "member_id": d.get("member_id"),
             "member_type": member_type, "section": section_name, "steel": steel,
-            "span_m": span, "demands": {"N_kn": N / 1e3, "Mx_kNm": Mx / 1e6,
+            "span_m": span, "l0x_m": l0x, "l0y_m": l0y,
+            "max_stress_N_mm2": max_stress,
+            "demands": {"N_kn": N / 1e3, "Mx_kNm": Mx / 1e6,
             "My_kNm": My / 1e6, "V_kn": V / 1e3, "deflection_mm": defl_mm},
             "utilization": max(utilization_components.values(), default=0.0),
             "utilization_components": utilization_components,

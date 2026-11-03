@@ -6,6 +6,9 @@ does not let an LLM invent loads, member forces, sections, or acceptance criteri
 from __future__ import annotations
 
 import json
+import csv
+import io
+import math
 import re
 from contextvars import ContextVar, Token
 from typing import Any, Callable, TypedDict
@@ -486,6 +489,58 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
             "section_map": dict(req.get("initial_member_sections") or {}), "iteration_history": [], "errors": []}
 
 
+def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
+    """Serialize final per-member checks to an Excel-friendly UTF-8 CSV."""
+    fields = [
+        "member_id", "member_type", "section", "steel",
+        "stress_check_result", "deflection_check_result", "stability_check_result",
+        "Mx_kNm", "My_kNm", "N_kN", "V_kN", "calculation_length_m",
+        "deflection_mm", "max_stress_N_mm2", "overall_passed", "check_details",
+    ]
+
+    def group_status(items: list[dict[str, Any]], keys: tuple[str, ...]) -> str:
+        matching = [item for item in items if any(key in str(item.get("item", "")) for key in keys)]
+        if not matching:
+            return "未验算"
+        return "通过" if all(item.get("passed") is True for item in matching) else "未通过"
+
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    for member in checks:
+        demands = member.get("demands") or member.get("analysis_demands") or {}
+        details = member.get("checks") or []
+        lengths = [float(member[key]) for key in ("l0x_m", "l0y_m") if _is_finite_number(member.get(key))]
+        if not lengths and _is_finite_number(member.get("span_m")):
+            lengths = [float(member["span_m"])]
+        writer.writerow({
+            "member_id": member.get("member_id", ""),
+            "member_type": member.get("member_type", ""),
+            "section": member.get("section", ""),
+            "steel": member.get("steel", ""),
+            "stress_check_result": group_status(details, ("强度", "抗剪", "σ =", "σ=")),
+            "deflection_check_result": group_status(details, ("挠度", "变形")),
+            "stability_check_result": group_status(details, ("稳定", "长细比", "局部")),
+            "Mx_kNm": demands.get("Mx_kNm", ""),
+            "My_kNm": demands.get("My_kNm", ""),
+            "N_kN": demands.get("N_kn", ""),
+            "V_kN": demands.get("V_kn", ""),
+            "calculation_length_m": max(lengths) if lengths else "",
+            "deflection_mm": demands.get("deflection_mm", ""),
+            "max_stress_N_mm2": member.get("max_stress_N_mm2", ""),
+            "overall_passed": "是" if member.get("passed") is True else "否" if member.get("passed") is False else "未知",
+            "check_details": json.dumps(details, ensure_ascii=False, separators=(",", ":")),
+        })
+    return ("\ufeff" + output.getvalue()).encode("utf-8")
+
+
+def _is_finite_number(value: Any) -> bool:
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
     """Analyze, check each physical frame member, resize, and re-analyze (bounded)."""
     if state.get("status") != "running":
@@ -615,6 +670,7 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
     run_id = uuid4().hex
     artifacts: dict[str, Any] = {}
     artifact_errors: list[str] = []
+    validation_csv_text = ""
     if final_checks:
         check_bundle = {
             "schema": "steelmind.member-check-results.v1",
@@ -648,6 +704,27 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             artifact_errors.append(f"逐构件验算 JSON 保存失败：{type(exc).__name__}: {exc}")
 
+        try:
+            from app import LocalArtifactStorage
+            storage = LocalArtifactStorage()
+            file_name = "validate_result.csv"
+            csv_content = _validation_csv(final_checks)
+            validation_csv_text = csv_content.decode("utf-8-sig")
+            artifact_key = storage.upload_file(
+                file_content=csv_content,
+                file_name=file_name,
+                content_type="text/csv; charset=utf-8",
+            )
+            artifacts["member_check_csv"] = {
+                "artifacts": [{
+                    "kind": "member_check_csv", "name": file_name,
+                    "media_type": "text/csv", "url": storage.generate_presigned_url(key=artifact_key),
+                }],
+                "run_id": run_id, "member_count": len(final_checks),
+            }
+        except Exception as exc:
+            artifact_errors.append(f"逐构件验算 CSV 保存失败：{type(exc).__name__}: {exc}")
+
     vis_result = ""
     try:
         # Pass the complete same final records that were written to the JSON
@@ -657,6 +734,8 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
             "results": final_analysis.get("results", {}),
             "member_checks": final_checks,
             "member_check_run_id": run_id,
+            "member_check_csv_text": validation_csv_text,
+            "member_check_csv_url": ((artifacts.get("member_check_csv") or {}).get("artifacts") or [{}])[0].get("url"),
         })
     except Exception as exc:
         state.setdefault("errors", []).append(f"三维可视化生成失败：{exc}")
