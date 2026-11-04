@@ -450,7 +450,7 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
     shape_errors = analysis_shape_errors(req)
     if shape_errors:
         return {"status": "needs_input", "errors": shape_errors}
-    from section_catalog import section_record
+    from section_catalog import search_sections, section_record
     geometry, loads = req.get("geometry") or {}, req.get("loads") or {}
     sections, candidates = req.get("model_sections") or {}, req.get("candidate_sections") or {}
     missing = []
@@ -471,11 +471,26 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("X/Z 向跨数和层数必须大于 0")
     except (TypeError, ValueError) as exc:
         return {"status": "needs_input", "errors": [f"几何参数无效：{exc}"]}
+    scope = str(req.get("candidate_scope") or "full_catalog").strip().lower()
+    if scope not in {"full_catalog", "provided"}:
+        return {"status": "needs_input", "errors": ["candidate_scope 仅支持 full_catalog 或 provided"]}
+    catalog = search_sections(top_k=1000)
+    steel_grade = str((req.get("material") or {}).get("steel_grade") or "").strip().upper()
+    if scope == "full_catalog":
+        # Q235 welded sections are only considered for Q235 steel. Other grades
+        # use the catalog's hot-rolled sections to avoid silently upgrading material.
+        if steel_grade == "Q235":
+            catalog_candidates = [row["id"] for row in catalog]
+        else:
+            catalog_candidates = [row["id"] for row in catalog
+                                  if row.get("catalog_type", "hot_rolled_h") == "hot_rolled_h"]
+        if not catalog_candidates:
+            return {"status": "needs_input", "errors": ["本地截面库没有适用于当前钢材的候选截面"]}
     for role in ("beam", "column"):
         initial = sections.get(f"{role}_section") or (sections.get(role) or {}).get("name")
-        values = candidates.get(role)
+        values = catalog_candidates if scope == "full_catalog" else candidates.get(role)
         if not initial or not isinstance(values, list) or not values:
-            return {"status": "needs_input", "errors": [f"请提供 model_sections.{role}_section 和 candidate_sections.{role}（按截面由小到大）"]}
+            return {"status": "needs_input", "errors": [f"请提供 model_sections.{role}_section 和有效截面候选"]}
         candidate_pairs = [(str(value).strip(), section_record(str(value).strip()))
                            for value in values if str(value).strip()]
         resolved = [item for _, item in candidate_pairs]
@@ -488,22 +503,30 @@ def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
         unique = {item["id"]: item for item in resolved if item}
         names = [row["id"] for row in sorted(unique.values(), key=lambda item: (item["area_mm2"], item["id"]))]
         initial_id = initial_record["id"]
-        if initial_id not in names:
+        if scope == "provided" and initial_id not in names:
             return {"status": "needs_input", "errors": [f"{role}初始截面 {initial} 必须包含在 candidate_sections.{role} 中"]}
         candidates[role] = names
         sections[f"{role}_section"] = initial_id
+    initial_member_sections = req.get("initial_member_sections") or {}
+    if not isinstance(initial_member_sections, dict):
+        return {"status": "needs_input", "errors": ["initial_member_sections 必须为构件编号到截面型号的对象"]}
+    resolved_member_sections: dict[str, str] = {}
+    for member_id, section_name in initial_member_sections.items():
+        record = section_record(str(section_name))
+        if not record:
+            return {"status": "needs_input", "errors": [f"构件 {member_id} 的初选截面 {section_name!r} 不在本地截面库"]}
+        resolved_member_sections[str(member_id)] = record["id"]
     try:
         max_iterations = int(req.get("max_iterations", 8))
         if not 1 <= max_iterations <= 20:
             raise ValueError("max_iterations 必须为 1 到 20 的整数")
-        target_utilization = float(req.get("target_utilization", 0.85))
-        if not 0.6 <= target_utilization <= 0.9:
-            raise ValueError("target_utilization 必须在 0.60 到 0.90 之间")
     except (TypeError, ValueError) as exc:
         return {"status": "needs_input", "errors": [str(exc)]}
     return {"status": "running", "request": {**req, "model_sections": sections, "candidate_sections": candidates, "max_iterations": max_iterations,
-                                                  "target_utilization": target_utilization},
-            "section_map": dict(req.get("initial_member_sections") or {}), "iteration_history": [], "errors": []}
+                                                  "candidate_scope": scope,
+                                                  "optimization_objective": "minimum_catalog_area_with_all_checks_pass",
+                                                  "initial_member_sections": resolved_member_sections},
+            "section_map": dict(resolved_member_sections), "iteration_history": [], "errors": []}
 
 
 def _validation_csv(checks: list[dict[str, Any]]) -> bytes:
@@ -586,7 +609,9 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
     model_sections = req["model_sections"]
     beam_initial = model_sections.get("beam_section") or model_sections.get("beam", {}).get("name")
     col_initial = model_sections.get("column_section") or model_sections.get("column", {}).get("name")
-    section_map: dict[str, str] = {}
+    # Keep the per-member section selection from workflow 1. It is the starting
+    # model state, and each subsequent analysis is rebuilt with the updated map.
+    section_map: dict[str, str] = dict(state.get("section_map") or {})
     history: list[dict[str, Any]] = []
     final_analysis: dict[str, Any] = {}
     final_checks: list[dict[str, Any]] = []
@@ -647,42 +672,39 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
                         "analysis_result": json.dumps(final_analysis, ensure_ascii=False)}
             selected = current
             selected_check = current_result
-            if iteration == 1 or not current_result.get("passed", False):
-                if not current_result.get("passed", False):
-                    failed_ids.append(mid)
-                candidate_list = (req.get("candidate_sections") or {}).get(role, [])
-                try:
-                    current_idx = candidate_list.index(current)
-                except ValueError:
-                    current_idx = -1
-                start_idx = 0 if iteration == 1 else current_idx + 1
-                # The first pass seeks a passing section near the target utilization.
-                # Later passes only move upward, which prevents section oscillation.
-                passing_candidates: list[tuple[float, int, str, dict[str, Any]]] = []
-                last_candidate: tuple[str, dict[str, Any]] | None = None
-                for candidate_index, candidate in enumerate(candidate_list[start_idx:], start=start_idx):
-                    if candidate == current:
-                        result = current_result
-                    else:
-                        candidate_payload = {**base_check, "section": candidate}
-                        result = json.loads(_tool_text("check_steel_member", candidate_payload))
-                    if not result.get("ok"):
-                        raise RuntimeError(result.get("error", f"{mid} 候选截面 {candidate} 验算失败"))
-                    last_candidate = (candidate, result)
-                    if result.get("passed", False):
-                        util = float(result.get("utilization", 0.0))
-                        passing_candidates.append((abs(util - req["target_utilization"]), candidate_index, candidate, result))
-                if passing_candidates:
-                    _, _, selected, selected_check = min(passing_candidates, key=lambda item: (item[0], item[1]))
-                elif last_candidate:
-                    selected, selected_check = last_candidate
-                if selected != current and iteration < req["max_iterations"]:
-                    updated_map[mid] = selected
-                    changed_ids.append({"member_id": mid, "from": current, "to": selected})
-                elif iteration >= req["max_iterations"]:
-                    # Do not report candidate checks as final results unless that
-                    # candidate was actually used in an OpenSees analysis cycle.
-                    selected, selected_check = current, current_result
+            if not current_result.get("passed", False):
+                failed_ids.append(mid)
+            # Recheck from the smallest catalog area on every analysis cycle.
+            # Catalog candidates are sorted by area, so the first passing entry
+            # is the lightest available section for this member under the
+            # current 3D analysis forces. The next cycle re-analyzes the updated
+            # whole frame before the choice can be accepted as final.
+            candidate_list = (req.get("candidate_sections") or {}).get(role, [])
+            passing_candidate: tuple[str, dict[str, Any]] | None = None
+            last_candidate: tuple[str, dict[str, Any]] | None = None
+            for candidate in candidate_list:
+                if candidate == current:
+                    result = current_result
+                else:
+                    candidate_payload = {**base_check, "section": candidate}
+                    result = json.loads(_tool_text("check_steel_member", candidate_payload))
+                if not result.get("ok"):
+                    raise RuntimeError(result.get("error", f"{mid} 候选截面 {candidate} 验算失败"))
+                last_candidate = (candidate, result)
+                if result.get("passed", False):
+                    passing_candidate = (candidate, result)
+                    break
+            if passing_candidate:
+                selected, selected_check = passing_candidate
+            elif last_candidate:
+                selected, selected_check = last_candidate
+            if selected != current and iteration < req["max_iterations"]:
+                updated_map[mid] = selected
+                changed_ids.append({"member_id": mid, "from": current, "to": selected})
+            elif selected != current:
+                # Do not report candidate checks as final results unless that
+                # candidate was actually used in an OpenSees analysis cycle.
+                selected, selected_check = current, current_result
             iteration_checks.append({**selected_check, "member_id": mid, "member_type": role,
                                      "section": selected, "analysis_section": current,
                                      "l0x_m": member.get("l0x_m", member.get("span_m")),
