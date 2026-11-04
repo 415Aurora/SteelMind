@@ -992,7 +992,15 @@ def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
         "status": "preliminary", "validation": validation, "knowledge_result": rag,
         "load_combination": combination, "analysis": analysis, "visualization": visualization, "member_checks": checks,
         "initial_member_sections": chosen,
-        "handoff": {**req, "initial_member_sections": chosen},
+        # Hand off the solver-normalized geometry and loads, not the raw form
+        # values. This guarantees that X/Z span arrays and story heights are
+        # complete in workflow 2 even when the user entered a single bay_m.
+        "handoff": {
+            **req,
+            "geometry": analysis.get("parameters", {}).get("geometry") or geometry,
+            "loads": analysis.get("parameters", {}).get("loads") or loads,
+            "initial_member_sections": chosen,
+        },
         "notice": "本流程为初算和截面初选。初选验算使用当前 OpenSees 内力，不会因初选截面变化重新分配内力；请将结果送入截面迭代与优化重新建模验证。",
     }
     return {"ok": True, "status": "preliminary", "report": report}
