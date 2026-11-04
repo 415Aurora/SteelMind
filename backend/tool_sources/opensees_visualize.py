@@ -276,7 +276,7 @@ def _build_html(model):
         'color=memberColor(item,status,baseColor),{a,b}=item;')
     document = replace_once(document,
         "const values=item?.demands||{},fmt=",
-        "const drawn=pickableMembers.find(member=>member.id===id),geometrySpan=drawn?Math.hypot(drawn.pair[1][0]-drawn.pair[0][0],drawn.pair[1][1]-drawn.pair[0][1],drawn.pair[1][2]-drawn.pair[0][2]):null,sectionShape=M.member_shapes?.[checkId]||(isBeam?M.beam_shape:M.column_shape),values=item?.demands||{},fmt=")
+        "const sectionMember=pickableMembers.find(member=>member.id===id),geometrySpan=sectionMember?Math.hypot(sectionMember.pair[1][0]-sectionMember.pair[0][0],sectionMember.pair[1][1]-sectionMember.pair[0][1],sectionMember.pair[1][2]-sectionMember.pair[0][2]):null,sectionShape=M.member_shapes?.[checkId]||(isBeam?M.beam_shape:M.column_shape),values=item?.demands||{},fmt=")
     document = replace_once(document,
         "截面：${item?.section||'未提供'}　|　钢材：${item?.steel||'未提供'}　|　跨度：${fmt(item?.span_m,'m')}",
         "截面：${item?.section||sectionShape?.name||(isBeam?M.beam_name:M.column_name)||'未提供'}　|　钢材：${item?.steel||M.steel_grade||'未提供'}　|　跨度：${fmt(item?.span_m??geometrySpan,'m')}")
