@@ -242,3 +242,6 @@ dist/*
 !dist/request-defaults.js
 !dist/design-defaults.json
 !dist/steel_modeling_parameters_template.xlsx
+
+!dist/office-ui.js
+!dist/office-workflow.js
