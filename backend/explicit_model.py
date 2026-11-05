@@ -23,6 +23,7 @@ def flag(value,path):
  raise InputIssue(path+' 仅支持0或1；端释放定义为两个局部弯矩释放，保留扭矩')
 
 def normalize(tables):
+ if any(str(k).lower()=='office_design' for k in tables):return None,['办公楼完整输入必须通过office-design入口计算，不能静默降级为自重']
  t={''.join(c for c in k.lower() if c.isalnum()):v for k,v in tables.items()}
  def rows(name):return t.get(name.lower().replace('_',''),[])
  errors=[]
@@ -97,7 +98,9 @@ def normalize(tables):
  if errors:return None,errors
  return {'nodes':nodes,'sections':sections,'materials':materials,'members':members,'self_weight_factor':factor,'source_tables':copy.deepcopy(tables)},[]
 
-def run_explicit_model(tables):
+def run_explicit_model(tables, *, segments_per_member=8):
+ if isinstance(segments_per_member,bool) or not isinstance(segments_per_member,int) or not 2<=segments_per_member<=32:
+  return {'ok':False,'status':'needs_input','errors':['segments_per_member必须为2至32的整数'],'upstream_check_summary':'INCOMPLETE','draft':True}
  model,errors=normalize(tables)
  if errors:return {'ok':False,'status':'needs_input','errors':errors,'upstream_check_summary':'INCOMPLETE','draft':True}
  import openseespy.opensees as ops
@@ -106,7 +109,7 @@ def run_explicit_model(tables):
    ops.wipe();ops.model('basic','-ndm',3,'-ndf',6);tags={nid:i for i,nid in enumerate(model['nodes'],1)}
    for nid,n in model['nodes'].items():
     ops.node(tags[nid],*[v*1000 for v in n['xyz']]);ops.fix(tags[nid],*n['fix'])
-   chains={};eid=0;nextnode=len(tags);weights={};total=0.;segments=8
+   chains={};eid=0;nextnode=len(tags);weights={};total=0.;segments=segments_per_member
    for ti,(mid,m) in enumerate(model['members'].items(),1):
     s=model['sections'][m['section_id']];mat=model['materials'][m['material_id']];axes=np.array(m['axes']);ops.geomTransf('Linear',ti,*axes[2])
     a=np.array(model['nodes'][m['i_node']]['xyz']);b=np.array(model['nodes'][m['j_node']]['xyz']);chain=[tags[m['i_node']]]
@@ -134,6 +137,12 @@ def run_explicit_model(tables):
    balance=sum(r['Fz_kN'] for r in reactions)-total
    if abs(balance)>max(1e-6,total*1e-7):raise InputIssue('支反力合计与框架自重不平衡')
    result={'ok':True,'status':'analysis_completed','draft':True,'upstream_check_summary':'INCOMPLETE','analysis':{'coordinate_system':'Excel XYZ, Z竖向；m/kN输入、mm/N求解','nodes':nodal,'members':members,'reactions':reactions,'sections':model['sections'],'materials':model['materials'],'weight_kN':total,'vertical_balance_error_kN':balance},'notice':'仅完成框架自重三维线弹性静力分析和反力平衡验证。未执行模态、反应谱、其他荷载组合或构件规范验算；analysis_completed不等于converged或规范通过。释放值1表示局部y/z两弯矩释放、保留扭矩。'}
+   from explicit_audit import audit_analysis
+   result['solver_configuration']={'segments_per_member':segments,'transformation':'Linear','load_case':'1.0G'}
+   result['numerical_audit']=audit_analysis(tables,result['analysis'])
+   if result['numerical_audit']['status']!='PASS':
+    result.update(ok=False,status='analysis_failed',errors=['自重分析数值复核未通过'])
+    return result
    from explicit_checks import evaluate_checks
    result['input_sha256']=input_hash(tables)
    result['code_checks']=evaluate_checks(tables,result['analysis'])

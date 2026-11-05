@@ -1039,8 +1039,8 @@ def _engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
             _emit_tool_trace({"type": "tool_result", "trace_id": trace_id, "tool": "explicit_selfweight_exports", "ok": False, "output": result})
             return {"ok": False, "status": result["status"], "errors": result.get("errors", [])}
         artifacts = publish_explicit_outputs(tables, result)
-        status = "partial" if any(a["name"] == "PDF转换缺项.json" for a in artifacts) else "success"
-        package = {"ok": True, "generation_status": status, "analysis_status": "analysis_completed", "data_validation_status": "valid", "draft": True, "upstream_check_summary": result.get("upstream_check_summary", "INCOMPLETE"), "code_check_summary": result.get("code_checks", {}).get("summary", {}), "draft_reasons": [result["notice"]], "artifacts": artifacts}
+        status = "partial" if any(a["name"].endswith("缺项.json") for a in artifacts) else "success"
+        package = {"ok": True, "generation_status": status, "analysis_status": "analysis_completed", "drawing_generation_status": "partial" if any(a["name"] == "图纸生成缺项.json" for a in artifacts) else "success", "data_validation_status": "valid", "numerical_audit_status": result.get("numerical_audit", {}).get("status", "INCOMPLETE"), "draft": True, "upstream_check_summary": result.get("upstream_check_summary", "INCOMPLETE"), "code_check_summary": result.get("code_checks", {}).get("summary", {}), "draft_reasons": [result["notice"]], "artifacts": artifacts}
         _emit_tool_trace({"type": "tool_result", "trace_id": trace_id, "tool": "explicit_selfweight_exports", "ok": True, "output": package})
         return {"ok": True, "status": status, "artifacts": {"engineering_package": package}}
     report = payload.get("final_report") or payload.get("report") or {}

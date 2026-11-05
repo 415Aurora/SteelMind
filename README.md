@@ -2,6 +2,16 @@
 
 这是一个可通过网页访问的初版智能体前端。当前版本采用静态 HTML/JavaScript，支持 OpenAI-compatible `POST /chat/completions` 接口。
 
+## 龙岩自重案例复现
+
+不启动网页、不调用模型API，使用项目虚拟环境运行：
+
+```bash
+bash scripts/run_longyan_case.sh
+```
+
+Mac也可双击`run_longyan_case.command`。完整输入、首次安装及结果判读见[案例说明](examples/longyan-selfweight/README.md)。当前只覆盖框架自重，数值复核通过与完整规范通过分别报告。
+
 ## 本地运行
 
 ### Windows（推荐）
@@ -73,3 +83,5 @@ DeepSeek 聊天 API 与 LangChain 工程流程是两条分开的路径：前者�
 主要入口：`backend/app.py` 是 HTTP 网关，`backend/workflow.py` 编排三条 LangChain LCEL 工作流，`backend/knowledge_tools.py` 连接本地规范 RAG，`dist/index.html` 是网页，`tools/build_model_template.mjs` 生成 Excel 参数模板。Python 环境安装和启动步骤请看 [`backend/README.md`](backend/README.md)。
 
 工作流3现接入 `backend/tool_sources/engineering_drawings.py` 与 `backend/engineering_export/`。工作流2最终报告会先转换并预检为 DesignBundle，再生成计算书、结果表、DXF/PDF二维方案图和 ZIP；数据缺项会拦截或标为草稿。该组件目前只支持二维方案级表达，不能代替正式施工图、规范组合分析或专业审查，详细输入输出契约见 [`backend/README.md`](backend/README.md)。
+
+龙岩案例最新修正：72根BY梁改为腹板竖直，未采用楼板约束；验算区分通过、不适用及缺项。见[修正与验算边界](docs/龙岩验算适用性与朝向修正.md)，默认案例输入及修改前对照见examples/longyan-selfweight/。

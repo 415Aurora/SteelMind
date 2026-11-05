@@ -1,0 +1,14 @@
+{
+  "scope": "已确认自重范围的回归基线，不是独立工程设计结论",
+  "input_sha256": "bed1d1bc31bdfc3a630c2c079399c4358572d647e7943639015640f25d471b58",
+  "nodes": 120,
+  "members": 248,
+  "weight_kN": 1296.4603515906015,
+  "weight_tolerance_kN": 0.000001,
+  "max_node_displacement_mm": 0.17713316198383453,
+  "max_node_tolerance_mm": 0.00001,
+  "max_beam_relative_deflection_mm": 6.286792597575929,
+  "max_beam_tolerance_mm": 0.00001,
+  "numerical_audit_status": "PASS",
+  "upstream_check_summary": "INCOMPLETE"
+}

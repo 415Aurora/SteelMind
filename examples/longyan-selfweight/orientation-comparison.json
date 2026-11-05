@@ -1,0 +1,544 @@
+{
+  "source_document": "案例验证.docx",
+  "source_sha256": "a5ee1f63370e5c0db7ef5a0dfa6d3ed00d5e1ebad9af6323a620761a601258af",
+  "authorization": "用户2026-11-05确认：不采用楼板约束；72根次梁改为H梁腹板竖直，保留前后对照",
+  "before": {
+    "input_sha256": "bed1d1bc31bdfc3a630c2c079399c4358572d647e7943639015640f25d471b58",
+    "weight_kN": 1296.4603515906015,
+    "max_node_displacement_mm": 0.17713316198383453,
+    "max_beam_relative_deflection_mm": 6.286792597575929,
+    "counts": {
+      "PASS": 1400,
+      "FAIL": 0,
+      "PENDING": 672,
+      "NA": 616
+    },
+    "upstream_check_summary": "INCOMPLETE"
+  },
+  "after": {
+    "input_sha256": "3a23067f5fa57ceb75fb6a86ff34e3a8f2c7a8946f11eff40e4eee433b886cfd",
+    "weight_kN": 1296.4603515906015,
+    "max_node_displacement_mm": 0.1771331619837725,
+    "max_beam_relative_deflection_mm": 0.2291459480104862,
+    "counts": {
+      "PASS": 1472,
+      "FAIL": 0,
+      "PENDING": 600,
+      "NA": 616
+    },
+    "upstream_check_summary": "INCOMPLETE"
+  },
+  "changes": [
+    {
+      "member_id": "BY001",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY002",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY003",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY004",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY005",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY006",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY007",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY008",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY009",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY010",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY011",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY012",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY013",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY014",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY015",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY016",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY017",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY018",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY019",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY020",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY021",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY022",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY023",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY024",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY025",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY026",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY027",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY028",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY029",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY030",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY031",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY032",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY033",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY034",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY035",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY036",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY037",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY038",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY039",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY040",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY041",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY042",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY043",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY044",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY045",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY046",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY047",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY048",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY049",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY050",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY051",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY052",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY053",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY054",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY055",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY056",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY057",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY058",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY059",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY060",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY061",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY062",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY063",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY064",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY065",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY066",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY067",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY068",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY069",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY070",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY071",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    },
+    {
+      "member_id": "BY072",
+      "field": "orientation_deg",
+      "before": 90,
+      "after": 0,
+      "reason": "用户确认按参考H梁腹板竖直修正；不采用楼板侧向约束"
+    }
+  ],
+  "unchanged": [
+    "120节点248杆件",
+    "Q355B材质",
+    "截面面积惯性矩等权威属性",
+    "杆端释放及支座",
+    "仅框架自重，无楼板、风震或新增支撑"
+  ]
+}

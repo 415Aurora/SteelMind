@@ -435,7 +435,8 @@ def run_explicit_workbook(request: WorkflowRequest) -> dict[str, Any]:
     tables = request.payload.get("tables") or {}
     result = run_explicit_model(tables)
     if result.get("ok"):
-        result["artifacts"] = publish_explicit_outputs(tables, result)
+        result["artifacts"] = publish_explicit_outputs(tables, result, include_drawings=False)
+        result["drawing_generation_status"] = "pending_workflow3"
         result["file_generation_status"] = "partial" if any(a["name"] == "PDF转换缺项.json" for a in result["artifacts"]) else "success"
         from explicit_viewer import publish_viewer
         result["visualization"] = publish_viewer(tables, result=result)

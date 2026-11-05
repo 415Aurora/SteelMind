@@ -30,6 +30,41 @@ def numeric(item,demand,limit,unit,formula,inputs,source,location='',upper_bound
 
 def pending(item,reason,basis):return {'item':item,'status':'PENDING','reason':reason,'basis':basis,'demand':None,'limit':None,'unit':None,'utilization':None,'formula':None,'inputs':{},'substitution':None,'data_location':None}
 
+def not_applicable(item, reason, basis, inputs=None):
+ return {**pending(item, reason, basis), 'status':'NA', 'inputs':inputs or {}}
+
+def local_plate_checks(section, grade, max_compression, max_my, max_mz, max_t, *, is_beam=False):
+ """Conservative S4 geometry gates, not a replacement for effective-section design.
+
+ No stress relaxation, slab restraint, or stiffeners are invented. Authority
+ section properties remain untouched. A geometry gate exceeding its bound
+ produces PENDING, since effective-section verification may still succeed.
+ """
+ shape=str(section['shape']).upper()
+ h,b,tw,tf=[float(section[k]) for k in ('depth_mm','width_mm','tw_mm','tf_mm')]
+ try: fy=float(str(grade).upper().split('Q')[1][:3])
+ except (ValueError, IndexError): return [pending('plate_local_stability','未支持的钢号修正系数','GB50017 表3.5.1')]
+ eps=math.sqrt(235/fy)
+ if shape in ('BOX','SHS','RHS'):
+  ratio=max((h-2*tf)/tw,(b-2*tw)/tf);limit=(42 if is_beam else 45)*eps
+  gate=numeric('plate_local_stability',ratio,limit,'1','max((h-2tf)/tw,(b-2tw)/tf) ≤ C sqrt(235/fy)',{'C':42 if is_beam else 45,'epsilon_k':eps,'grade_number_MPa':fy,'gross_properties_preserved':True},'GB50017 表3.5.1；按四壁均匀受压作保守S4筛查；双轴压弯及有效截面另核',upper_bound=True)
+  if gate['status']=='PENDING': gate['reason']='毛截面保守S4门槛未满足；需按实际应力梯度/板件分类及8.4.2有效截面 effective section 精算，不代表构件承载力已失败。不得用抗震应力修正条件直接放宽本自重案例。'
+  return [gate]
+ if shape not in ('H','I','H-WELDED','I-WELDED','HN','HW','HM'):return [pending('plate_local_stability','该截面类型尚未实现板件适用性判断','GB50017 3.5、8.4')]
+ flange=numeric('flange_width_thickness',(b-tw)/(2*tf),15*eps,'1','(b-tw)/(2tf) ≤ 15 sqrt(235/fy)',{'epsilon_k':eps,'grade_number_MPa':fy,'fillet_deduction_mm':0},'GB50017 表3.5.1 H/I翼缘S4；忽略圆角对外伸宽度的有利扣减',upper_bound=True)
+ # Uniform compression is a conservative lower S4 limit for a web with any
+ # compressive axial action. Pure major-axis bending may use the beam limit.
+ pure_major=(max_compression<=1e-8 and max_my<=1e-8 and max_t<=1e-8)
+ web=numeric('web_width_thickness',(h-2*tf)/tw,(124 if pure_major else 45)*eps,'1','(h-2tf)/tw ≤ C sqrt(235/fy)',{'C':124 if pure_major else 45,'epsilon_k':eps,'max_compression_kN':max_compression,'max_minor_moment_kNm':max_my,'gross_properties_preserved':True},'GB50017 表3.5.1；仅无轴压且无弱轴弯扭时采用纯受弯腹板124ε，其余按均匀受压45ε保守筛查',upper_bound=True)
+ if pure_major and (h-2*tf)/tw<=80*eps:
+  extra=not_applicable('web_additional_stability','本均布自重无局部横向压应力场，腹板高厚比不超过80ε，无需另作6.3.3至6.3.5区格稳定验算；支座/节点承压仍属项目缺项','GB50017 6.3.1、6.3.2',{'h0_over_tw':(h-2*tf)/tw,'threshold':80*eps})
+ else:
+  extra=pending('web_additional_stability','腹板超过80ε或存在轴压/弱轴弯扭；需明确实际区格、加劲肋及边界并按6.3/8.4验算；S4筛查通过不等于此项通过','GB50017 6.3.1至6.3.5及8.4')
+ group=pending('plate_local_stability','板件分项仍有待补充；见翼缘、腹板S4门槛和腹板区格稳定分项','GB50017 3.5、6.3、8.4')
+ if all(c['status'] in ('PASS','NA') for c in (flange,web,extra)):
+  group={'item':'plate_local_stability','status':'PASS','reason':'本次受力适用条件下翼缘、腹板S4门槛满足，且无需另作腹板区格稳定；不涵盖连接局部承压或其他作用','basis':'GB50017 表3.5.1、6.3.1、6.3.2'}
+ return [flange,web,extra,group]
+
 def evaluate_checks(tables,analysis):
  controls={str(r.get('parameter_id')):r.get('value') for name,rows in tables.items() if name.lower()=='design_controls' for r in rows}
  def option(key,default):
@@ -58,9 +93,14 @@ def evaluate_checks(tables,analysis):
   # never the chord through its displaced free end.
   root_slope=(np.cross(np.array(m['segment_displacements_mm_rad'])[anchor,3:6],axes[0])@axes.T) if cantilever else None
   reference_unresolved=(free_i and free_j) or (cantilever and m.get('hinge_j' if free_i else 'hinge_i'))
-  max_stress=max_shear_y=max_shear_z=max_t=max_defl=0.;stress_where=defl_where=''
+  max_compression=max_my=max_mz=0.;max_stress=max_shear_y=max_shear_z=max_t=max_defl=0.;stress_where=defl_where=''
   for k,F in enumerate(m['segment_end_actions_kN_kNm']):
    n=np.array([F[0]*1000,q[0]]);my=np.array([F[4]*1e6,F[2]*1000,q[2]/2]);mz=np.array([-F[5]*1e6,F[1]*1000,q[1]/2])
+   for coeff,kind,divisor in ((n,'n',1000),(my,'my',1e6),(mz,'mz',1e6)):
+    values=[float(poly.polyval(x,coeff))/divisor for x in [0.,ell]+roots_in(poly.polyder(coeff),ell)]
+    if kind=='n':max_compression=max(max_compression,max(values))
+    elif kind=='my':max_my=max(max_my,max(abs(v) for v in values))
+    else:max_mz=max(max_mz,max(abs(v) for v in values))
    candidates=[0.,ell]
    for sn,sy,sz in itertools.product([-1,1],repeat=3):
     expr=poly.polyadd(poly.polyadd(n*sn/A,my*sy/Wy),mz*sz/Wz);candidates+=roots_in(poly.polyder(expr),ell)
@@ -100,16 +140,20 @@ def evaluate_checks(tables,analysis):
    c.append(pending('beam_deflection','自由端/释放端的挠度参照条件未明确，不能套用两端连线判据','GB50017 附录B'))
   elif 'beam' in str(m.get('member_type','')):
    c.append(numeric('beam_deflection',max_defl,(2 if cantilever else 1)*L/den,'mm','v=max_x ||u_transverse(x)-u_reference(x)|| ≤ L_effective / denominator',{'L_mm':L,'L_effective_mm':(2 if cantilever else 1)*L,'reference':'root_tangent' if cantilever else 'end_chord','denominator':den,'load_case':'1.0G characteristic','sampling':'连续分段四次多项式，含区间驻点，不仅取节点值'},'GB50017 附录B 表B.1.1；缺省采用楼盖主梁L/400的较严格要求，悬臂有效跨度取2L并相对根部切线计挠度；具体构件用途须复核',defl_where))
-  else:c.append(pending('member_deformation_limit','柱构件横向变形不能替代整体层间位移角；需要适用体系/作用及限值','GB50017 附录B'))
-  c.extend([
-   pending('compression_stability','缺少按实际侧移/支撑确定的计算长度、屈曲曲线及压弯相互作用条件；本显式模块尚未实现完整双向压弯稳定判定','GB50017 第7、8章、附录D'),
-   pending('lateral_torsional_stability','需明确侧向支承、有效无支撑长度、弯矩分布和扭转约束；不能用几何长度直接替代','GB50017 6.2及附录C'),
-   pending('plate_local_stability','H/箱形板件的应力梯度、板件等级和有效截面需分别判定；未沿用H型筛查公式冒充箱柱验算','GB50017 3.5、7.3、8.4'),
-  ])
+  else:c.append(not_applicable('member_deformation_limit','柱不套用梁相对挠度限值；节点位移已计算，整体层间位移控制另列项目级缺项','GB50017 附录B'))
+  if max_compression<=1e-8:
+   c.append(not_applicable('compression_stability','本工况连续杆段轴力无受压区，不作受压/压弯稳定；不外推其他荷载组合','GB50017 第7、8章',{'max_compression_kN':max_compression,'tolerance_kN':1e-8,'sign':'局部截面N正为受压'}))
+  else:c.append(pending('compression_stability',f'本工况最大受压轴力{max_compression:.6g} kN；需双向计算长度、侧移条件、屈曲曲线及压弯相互作用；未用层高代替计算长度','GB50017 第7、8章、附录D'))
+  if box and 'column' in str(m.get('member_type','')):
+   c.append(not_applicable('lateral_torsional_stability','闭口箱形截面不重复套用H梁侧扭稳定；受压箱柱仍须完成双轴压弯稳定，未据此免除柱稳定','GB50017 8.2.5闭口截面稳定计算分工'))
+  elif max_compression<=1e-8 and max_my<=1e-8 and max_mz<=1e-8:
+   c.append(not_applicable('lateral_torsional_stability','本工况无受压及弯矩，不作梁侧扭稳定','GB50017 6.2',{'moment_tolerance_kNm':1e-8}))
+  else:c.append(pending('lateral_torsional_stability','未采用组合楼板约束；需实际受压翼缘侧向支承、无支撑长度及端部抗扭条件，不能仅凭杆端弯矩释放判为免验','GB50017 6.2及附录C'))
+  c.extend(local_plate_checks(s,mat.get('grade',''),max_compression,max_my,max_mz,max_t,is_beam='beam' in str(m.get('member_type',''))))
   if max_t>1e-8:c.append(pending('torsion_interaction',f'存在T={max_t:.6g}kN·m；尚未完成扭转/翘曲与弯剪共同作用判定','GB50017 6.3及第8章'))
   else:c.append({'item':'torsion_interaction','status':'NA','reason':'仅本次自重工况的扭矩在数值容差内为零；不外推其他工况'})
   state='FAIL' if any(v['status']=='FAIL' for v in c) else 'INCOMPLETE' if any(v['status']=='PENDING' for v in c) else 'PASS'
-  members.append({'member_id':m['member_id'],'section_id':sid,'status':state,'checks':c})
+  members.append({'member_id':m['member_id'],'section_id':sid,'status':state,'completed_check_status':'FAIL' if any(v['status']=='FAIL' for v in c) else 'PASS' if any(v['status']=='PASS' for v in c) else 'NOT_CHECKED','coverage':{k:sum(v['status']==k for v in c) for k in ('PASS','FAIL','PENDING','NA')},'checks':c})
  counts={s:sum(c['status']==s for m in members for c in m['checks']) for s in ('PASS','FAIL','PENDING','NA')}
- missing=[{'item':'complete_load_combinations','reason':'当前只执行框架自重；楼面活载、风震和完整组合尚未执行'}, {'item':'frame_second_order_stability','reason':'未完成二阶效应/初始缺陷及整体稳定适用性验证'}, {'item':'connections_and_supports','reason':'连接节点、柱脚及基础承载力不在本杆系验证范围'}]
- return {'schema_version':'ExplicitCodeChecks/1.0','scope':'框架自重工况的已实现截面强度、抗剪保守上界及梁挠度验算；不等同完整结构规范通过','status':'FAIL' if counts['FAIL'] else 'INCOMPLETE','summary':counts,'members':members,'project_pending':missing,'assumptions':[f'承载力按 {g0:g}×{gg:g}G，γ0/γG可通过Design_Controls设置；缺省值须按设计条件确认',f'正常使用按1.0G，梁挠度缺省L/{den:g}；按楼盖主梁控制，需核对实际用途','模型未定义孔洞及截面削弱，采用给定毛截面；截面局部稳定及有效截面未验证','Q355强度表的牌号修订及材料质量证明需独立复核，未将Fy直接当作f'],'source':SOURCE}
+ missing=[{'item':'complete_load_combinations','reason':'当前只执行框架自重；楼面活载、风震和完整组合尚未执行'}, {'item':'frame_deformation_limits','reason':'整体层间位移控制需明确适用作用及限值；柱不套梁挠度，已计算节点位移保留'}, {'item':'frame_second_order_stability','reason':'未完成二阶效应/初始缺陷及整体稳定适用性验证'}, {'item':'connections_and_supports','reason':'连接节点、柱脚及基础承载力不在本杆系验证范围'}]
+ return {'schema_version':'ExplicitCodeChecks/1.1','applicability_policy':'force-aware-v1; no-slab-restraint; NA requires recorded reason','scope':'框架自重工况的已实现截面强度、抗剪保守上界及梁挠度验算；不等同完整结构规范通过','status':'FAIL' if counts['FAIL'] else 'INCOMPLETE','summary':counts,'members':members,'project_pending':missing,'assumptions':[f'承载力按 {g0:g}×{gg:g}G，γ0/γG可通过Design_Controls设置；缺省值须按设计条件确认',f'正常使用按1.0G，梁挠度缺省L/{den:g}；按楼盖主梁控制，需核对实际用途','模型未定义孔洞及截面削弱，采用给定毛截面；板件分项另列，未满足S4筛查者须精算有效截面，毛截面应力通过不等于有效截面强度通过','Q355强度表的牌号修订及材料质量证明需独立复核，未将Fy直接当作f'],'source':SOURCE}

@@ -5,3 +5,8 @@ assert.equal(vm.runInContext('forceLegendRange().count',ctx),3);assert.equal(vm.
 ctx.M.member_checks={a:{demands:{N_kn:0}}};vm.runInContext('updateLegend()',ctx);assert(elements.legend.innerHTML.includes('全部为 0'));
 ctx.M.member_checks={a:{demands:{N_kn:null}}};vm.runInContext('updateLegend()',ctx);assert(elements.legend.innerHTML.includes('无可用数据'));assert(!elements.legend.innerHTML.includes('NaN'));
 console.log('Signed range, magnitude colour scale, zero and missing values are distinct');
+assert.match(vm.runInContext('legendNumber(1e-9)',ctx),/e-9/);
+assert.match(vm.runInContext('legendNumber(-2.5e-7)',ctx),/^-.*e-7/);
+assert.equal(vm.runInContext('legendNumber(-0)',ctx),'0');
+assert.equal(vm.runInContext('legendNumber(null)',ctx),'—');
+assert(!vm.runInContext('legendNumber(0.001)',ctx).includes('e'));

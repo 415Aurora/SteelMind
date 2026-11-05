@@ -56,12 +56,12 @@ def build_scene(tables,result=None):
   records={m['member_id']:m for m in result['analysis']['members']};norms={m['member_id']:m for m in result['code_checks']['members']}
   if set(records)!=set(checks):raise InputIssue('分析构件编号与当前模型不一致')
   for mid,item in checks.items():
-   norm=norms[mid];curves[mid]=deformation_curve(records[mid],result['analysis'],point);item['end_displacements_mm']={'i':records[mid]['segment_displacements_mm_rad'][0][:3],'j':records[mid]['segment_displacements_mm_rad'][-1][:3]};item.update(demands=force_envelope(records[mid]),checks=norm['checks'],overall_status=norm['status'])
+   norm=norms[mid];curves[mid]=deformation_curve(records[mid],result['analysis'],point);item['end_displacements_mm']={'i':records[mid]['segment_displacements_mm_rad'][0][:3],'j':records[mid]['segment_displacements_mm_rad'][-1][:3]};item.update(demands=force_envelope(records[mid]),checks=norm['checks'],overall_status=norm['status'],completed_check_status=norm.get('completed_check_status','NOT_CHECKED'),coverage=norm.get('coverage',{}))
    for c in norm['checks']:
     if c['item']=='beam_deflection':item['demands']['deflection_mm']=c.get('demand')
     if c['item']=='section_strength':item['max_stress_N_mm2']=c.get('demand')
    statuses[mid]=False if norm['status']=='FAIL' else True if norm['status']=='PASS' else None
-   vals=[c['utilization'] for c in norm['checks'] if c.get('utilization') is not None];
+   vals=[c['utilization'] for c in norm['checks'] if c.get('utilization') is not None and c['status'] in ('PASS','FAIL')];
    if vals:utilizations[mid]=max(vals)
   for n in result['analysis']['nodes']:
    xyz=point(n['xyz_m']);u=n['displacement_mm_rad'];displacements.append(dict(zip(['x_m','y_m','z_m','ux_mm','uy_mm','uz_mm'],xyz+[u[0],u[2],-u[1]])))
@@ -87,7 +87,7 @@ def build_html(tables,result=None):
  document=document.replace('SteelMind 双向柱网空间几何视图','Excel原始节点与逐构件截面')
  # Insert at end so no earlier CSV loader can paint unrelated checks onto a new model.
  extra=r'''
-const sourceSubtitle=document.getElementById('subtitle');sourceSubtitle.textContent=`Excel原始杆系：${M.explicit_nodes.length}节点 / ${M.explicit_members.length}杆件；原Z竖向；网页刚体旋转映射(X,Z,-Y)，原坐标未改写`;
+const sourceSubtitle=document.getElementById('subtitle');sourceSubtitle.textContent=`Excel原始杆系：${M.explicit_nodes.length}节点 / ${M.explicit_members.length}杆件；Z竖向`;
 document.getElementById('support').textContent='支座及释放见原Excel；未作规范验算';
 document.querySelector('.notice').textContent='原始杆系几何预览；点击梁柱查看实际截面。未进行规范验算，不显示通过结论。';
 document.getElementById('loadValidationCsv').hidden=true;
@@ -110,28 +110,29 @@ showSectionForMember=function(id,checkId=id){
 '''
  extra+=r'''
 const withAnalysis=M.analysis_scope==='self_weight';
+document.getElementById('csvStatus').hidden=true;
 document.getElementById('support').textContent='原Excel支座与释放；'+(withAnalysis?'已载入自重分析':'尚未分析');
-document.querySelector('.notice').textContent=withAnalysis?'当前结果：1.0G框架自重分析。局部x从I指向J；My/Mz、Vy/Vz按局部轴表示。各分量取沿杆有符号绝对极值，位置可能不同，不能拼成同一截面的内力组合。沿杆变形为连续位移场取样，显示已放大；构件规范验算尚未闭合。':'原始杆系几何预览；运行工作流2后自动更新自重内力与已实施验算。';
-document.getElementById('csvStatus').textContent=withAnalysis?'本次自重分析；不套用Excel历史3D3S结果或其他模型CSV':'尚未分析；截面参数不等于内力结果';
+document.querySelector('.notice').textContent=withAnalysis?'仅框架自重（1.0G），规范验算未闭合。各内力分量的控制位置可能不同。':'几何预览；运行工作流2获取内力与验算。';
+document.getElementById('csvStatus').textContent=withAnalysis?'本次自重结果已载入':'尚未分析';
 showMember=function(id,checkId=id){
  selectedMember=id;const item=M.member_checks[checkId],member=M.explicit_members.find(m=>m.id===id),panel=document.getElementById('memberInspector'),checks=document.getElementById('inspectorChecks'),meta=document.getElementById('inspectorMeta');
- const f=(v,u)=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v).toLocaleString('zh-CN',{maximumFractionDigits:4})+' '+u:(withAnalysis?'不适用或待补充':'尚未分析');
+ const f=(v,u)=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?legendNumber(v)+' '+u:(withAnalysis?'不适用或待补充':'尚未分析');
  document.getElementById('inspectorTitle').textContent=id+' · '+(member.kind==='beam'?'梁':'柱');
  const d=item.demands||{};
- meta.textContent=(withAnalysis?'自重分析已完成；构件规范状态：'+item.overall_status:'当前仅有几何与截面；请运行工作流2')+'\n截面：'+item.section+'；钢材：'+item.steel+'；长度：'+f(item.span_m,'m')+'\n轴力 N：'+f(d.N_kn,'kN')+'\n局部弯矩 My：'+f(d.My_kNm,'kN·m')+'；Mz：'+f(d.Mz_kNm,'kN·m')+'\n局部剪力 Vy：'+f(d.Vy_kn,'kN')+'；Vz：'+f(d.Vz_kn,'kN')+'\n扭矩 T：'+f(d.T_kNm,'kN·m')+'\n梁相对挠度：'+f(d.deflection_mm,'mm')+'\n承载力验算应力（γ0γG）：'+f(item.max_stress_N_mm2,'MPa')+'\n稳定计算长度：待确认，未用几何长度替代';
+ meta.textContent=(withAnalysis?'自重分析已完成；'+(item.overall_status==='FAIL'?'有验算未通过':item.overall_status==='PASS'?'本次构件验算通过':'已验项'+(item.completed_check_status==='PASS'?'通过':'待核')+' · 尚有缺项'):'当前仅有几何与截面；请运行工作流2')+'\n截面：'+item.section+'；钢材：'+item.steel+'；长度：'+f(item.span_m,'m')+'\n轴力 N：'+f(d.N_kn,'kN')+'\n局部弯矩 My：'+f(d.My_kNm,'kN·m')+'；Mz：'+f(d.Mz_kNm,'kN·m')+'\n局部剪力 Vy：'+f(d.Vy_kn,'kN')+'；Vz：'+f(d.Vz_kn,'kN')+'\n扭矩 T：'+f(d.T_kNm,'kN·m')+'\n梁相对挠度：'+f(d.deflection_mm,'mm')+'\n承载力验算应力（γ0γG）：'+f(item.max_stress_N_mm2,'MPa')+'\n稳定计算长度：待确认，未用几何长度替代';
  checks.replaceChildren();
  if(!withAnalysis){const p=document.createElement('p');p.textContent='内力由分析计算产生，不从截面尺寸或历史汇总结果推断。';checks.append(p)}
- const labels={section_strength:'截面强度',strong_axis_shear_bound:'强轴抗剪（保守界）',weak_axis_shear_bound:'弱轴抗剪（保守界）',combined_stress_bound:'折算应力（保守界）',beam_deflection:'梁挠度',member_deformation_limit:'整体变形适用性',compression_stability:'压弯稳定',lateral_torsional_stability:'整体/侧扭稳定',plate_local_stability:'板件局部稳定',torsion_interaction:'扭转共同作用'};
+ const labels={section_strength:'截面强度',strong_axis_shear_bound:'强轴抗剪（保守界）',weak_axis_shear_bound:'弱轴抗剪（保守界）',combined_stress_bound:'折算应力（保守界）',beam_deflection:'梁挠度',member_deformation_limit:'整体变形适用性',compression_stability:'压弯稳定',lateral_torsional_stability:'整体/侧扭稳定',flange_width_thickness:'翼缘宽厚比 S4',web_width_thickness:'腹板宽厚比 S4',web_additional_stability:'腹板区格稳定',plate_local_stability:'板件局部稳定汇总',torsion_interaction:'扭转共同作用'};
  const items=item.checks||[],counts={PASS:0,FAIL:0,PENDING:0,NA:0};for(const c of items)counts[c.status]=(counts[c.status]||0)+1;
  const summary=document.createElement('div');summary.className='check-summary';summary.textContent=`单项：通过 ${counts.PASS} · 未通过 ${counts.FAIL} · 待补充 ${counts.PENDING} · 不适用 ${counts.NA}`;checks.append(summary);
- const actions={compression_stability:'你/计算组：确认双向支撑、侧移条件、计算长度及屈曲曲线。程序：还需实现完整压弯稳定判定，当前不会因补值自动变为通过。',lateral_torsional_stability:'你/计算组：确认构件用途、受压翼缘侧向支承位置、无支撑长度及扭转约束。程序：尚需完成适用性和稳定公式。',plate_local_stability:'计算组：按H/箱形截面的应力分布判定板件等级及有效截面。程序：尚需补充局部稳定实现；不要修改截面名称来消除提示。',member_deformation_limit:'计算组：确认整体变形的比较层、控制条件和限值。柱相对变形不能直接套梁挠度限值；节点位移已计算。',torsion_interaction:'计算组：核对扭矩、翘曲和边界；存在扭矩时需补充共同作用验算。',combined_stress_bound:'保守界超限时需精算；不代表真实应力已超限。'};
+ const actions={compression_stability:'你/计算组：确认双向支撑、侧移条件、计算长度及屈曲曲线。程序：还需实现完整压弯稳定判定，当前不会因补值自动变为通过。',lateral_torsional_stability:'你/计算组：确认构件用途、受压翼缘侧向支承位置、无支撑长度及扭转约束。程序：尚需完成适用性和稳定公式。',plate_local_stability:'计算组：按H/箱形截面的应力分布判定板件等级及有效截面。程序：已按实际受力作S4保守筛查；超出筛查门槛需精算有效截面，不能修改名称来消除提示。',member_deformation_limit:'计算组：确认整体变形的比较层、控制条件和限值。柱相对变形不能直接套梁挠度限值；节点位移已计算。',torsion_interaction:'计算组：核对扭矩、翘曲和边界；存在扭矩时需补充共同作用验算。',combined_stress_bound:'保守界超限时需精算；不代表真实应力已超限。'};
  for(const c of [...items].sort((a,b)=>({FAIL:0,PENDING:1,PASS:2,NA:3}[a.status]-{FAIL:0,PENDING:1,PASS:2,NA:3}[b.status]))){
   const card=document.createElement('details'),heading=document.createElement('summary'),badge=document.createElement('span'),text=document.createElement('p');card.className='check-item';card.open=c.status==='FAIL';heading.textContent=labels[c.item]||c.item;badge.textContent=({PASS:'通过',FAIL:'未通过',PENDING:'待补充',NA:'不适用'})[c.status]||'待补充';badge.className=c.status==='PASS'?'check-pass':c.status==='FAIL'?'check-fail':'check-pending';heading.append(badge);
-  if(c.utilization!==null&&c.utilization!==undefined){const ratio=document.createElement('small');ratio.textContent=' 利用率 '+Number(c.utilization).toFixed(3);heading.append(ratio)}
+  if(c.utilization!==null&&c.utilization!==undefined){const ratio=document.createElement('small');ratio.textContent=' 利用率 '+legendNumber(c.utilization);heading.append(ratio)}
   text.textContent=[c.substitution,c.reason,c.formula,c.basis].filter(Boolean).join('\n');card.append(heading,text);
   if(c.status==='PENDING'){const todo=document.createElement('p');todo.className='check-action';todo.textContent='如何处理：'+(actions[c.item]||'按本项原因补充适用条件或精算结果，由计算组复核；不能直接改成通过。');card.append(todo)}checks.append(card);
  }
- const guide=document.createElement('details'),title=document.createElement('summary'),body=document.createElement('p');guide.className='check-item pending-guide';title.textContent='待补充项处理指引';body.textContent='① 输入可配置：Design_Controls支持permanent_load_factor（默认1.3）、importance_factor（默认1）、beam_deflection_denominator（默认400），仅按已确认设计条件修改并重算。② 支撑、计算长度、局部稳定等既需专业确认，也有尚未实现的公式；单填Excel不能消除这些待办。③ 风震、完整组合、节点连接/基础不在本次仅自重范围，保留缺项即可。④ 报告保留INCOMPLETE，可导出；不要用0或“通过”替代缺失信息。';guide.append(title,body);checks.append(guide);
+ const guide=document.createElement('details'),title=document.createElement('summary'),body=document.createElement('p');guide.className='check-item pending-guide';title.textContent='待补充项处理指引';body.textContent='① 输入可配置：Design_Controls支持permanent_load_factor（默认1.3）、importance_factor（默认1）、beam_deflection_denominator（默认400），仅按已确认设计条件修改并重算。② 支撑、计算长度、局部稳定等既需专业确认，也有尚未实现的公式；单填Excel不能消除这些待办。③ 已标为不适用的分项保留原因，无需强行补值。风震、完整组合、节点连接/基础不在本次仅自重范围，保留缺项即可。④ 报告保留INCOMPLETE，可导出；不要用0或“通过”替代缺失信息。';guide.append(title,body);checks.append(guide);
 
  showSectionForMember(id,checkId);panel.classList.add('open');draw();
 };
@@ -141,7 +142,8 @@ updateLegend();
  document=document.replace('<option value="Mx_kNm">弯矩 Mx</option>', '<option value="My_kNm">局部弯矩 My</option><option value="Mz_kNm">局部弯矩 Mz</option><option value="Vy_kn">局部剪力 Vy</option><option value="Vz_kn">局部剪力 Vz</option><option value="T_kNm">扭矩 T</option>')
  document=document.replace('forceMode="Mx_kNm"','forceMode="N_kn"')
  document=document.replace('<option value="V_kn">剪力 V</option>','')
- document=document.replace("else if(data.type==='steelmind-load-embedded-validation-csv'){", "else if(data.type==='steelmind-load-embedded-validation-csv'){if(M.analysis_scope){document.getElementById('csvStatus').textContent=M.analysis_scope==='self_weight'?'已内置本次自重分析与逐项验算，无需CSV':'运行工作流2后自动载入内力，无需CSV';return;}")
+ document=document.replace('点击构件查看截面与已有验算数据　·　拖动旋转　·　滚轮缩放　·　Shift/右键拖动平移','点击构件查看结果 · 拖动旋转 · 滚轮缩放')
+ document=document.replace("else if(data.type==='steelmind-load-embedded-validation-csv'){", "else if(data.type==='steelmind-load-embedded-validation-csv'){if(M.analysis_scope){document.getElementById('csvStatus').textContent=M.analysis_scope==='self_weight'?'本次自重结果已载入':'运行工作流2获取结果';return;}")
  # Draw member curves through the same scene projection, without applying nodal displacement twice.
  document=document.replace('function project(p){let [px,py,pz]=p;if(renderMode===', 'function project(p,skipDisplacement=false){let [px,py,pz]=p;if(!skipDisplacement&&renderMode===')
  document=document.replace('return{...item,a,b,depth:(a[2]+b[2])/2}', 'const curve=renderMode==="deformed"?(M.deformation_curves?.[item.id]||[]).map(d=>project(d.point.map((v,i)=>v+d.u_mm[i]/1000*Number(document.getElementById("deformScale").value)),true)):[];return{...item,a,b,curve,depth:(a[2]+b[2])/2}')
