@@ -43,6 +43,8 @@ app.add_middleware(
 )
 
 TOOL_SPECS = {
+    "generate_office_calculation_book": ("office_exports.py", "generate_office_calculation_book", "为服务端办公楼运行生成计算书与结果表"),
+    "generate_office_design_files": ("office_exports.py", "generate_office_design_files", "为服务端办公楼运行生成DXF/PDF及归档"),
     "validate_steel_frame_parameters": ("structural_calc.py", "validate_steel_frame_parameters", "校验钢框架几何、荷载、材料与初选截面参数"),
     "query_region_params": ("__knowledge__", "query_region_params", "从本地规范 RAG 检索地区参数候选依据（需核验）"),
     "search_steel_standards": ("__knowledge__", "search_steel_standards", "检索本地 07 规范知识库并返回可追溯条文片段"),
@@ -586,3 +588,7 @@ def invoke(tool_name: str, request: InvokeRequest) -> dict[str, Any]:
         return {"ok": True, "tool": tool_name, "result": result}
     except Exception as exc:
         return {"ok": False, "tool": tool_name, "error": f"{type(exc).__name__}: {exc}"}
+
+# Full office loads use an isolated run contract; never downgrade to Excel selfweight.
+from office_api import router as office_router
+app.include_router(office_router)

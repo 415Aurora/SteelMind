@@ -85,3 +85,7 @@ DeepSeek 聊天 API 与 LangChain 工程流程是两条分开的路径：前者�
 工作流3现接入 `backend/tool_sources/engineering_drawings.py` 与 `backend/engineering_export/`。工作流2最终报告会先转换并预检为 DesignBundle，再生成计算书、结果表、DXF/PDF二维方案图和 ZIP；数据缺项会拦截或标为草稿。该组件目前只支持二维方案级表达，不能代替正式施工图、规范组合分析或专业审查，详细输入输出契约见 [`backend/README.md`](backend/README.md)。
 
 龙岩案例最新修正：72根BY梁改为腹板竖直，未采用楼板约束；验算区分通过、不适用及缺项。见[修正与验算边界](docs/龙岩验算适用性与朝向修正.md)，默认案例输入及修改前对照见examples/longyan-selfweight/。
+
+## 办公楼恒活风震课程模块
+
+网页在“连接与知识库”明确载入办公楼完整荷载课程案例后运行工作流2/3，也可通过对话调用。命令行使用项目虚拟环境执行 `bash scripts/run_office_case.sh`。支持参考平面四层框架的G/Q/W/水平E分析、保守构件验算、计算书与DXF/PDF。连接、柱脚、楼板、基础交接状态另列。操作、输入范围和API见[办公楼完整案例复现](docs/办公楼完整案例复现.md)。

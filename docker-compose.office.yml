@@ -1,0 +1,21 @@
+services:
+  gateway:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.office
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      STEEL_TOOL_PUBLIC_URL: http://127.0.0.1:8000
+    volumes:
+      - office-data:/data
+  frontend:
+    image: python:3.12-alpine
+    command: ["python", "-m", "http.server", "8080", "--bind", "0.0.0.0", "--directory", "/site"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./dist:/site:ro
+volumes:
+  office-data:

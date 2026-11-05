@@ -11,7 +11,7 @@ def force_envelope(member):
  """
  result=dict.fromkeys(['N_kn','My_kNm','Mz_kNm','Vy_kn','Vz_kn','T_kNm'],0.)
  ell=member['length_m']*1000/len(member['segment_end_actions_kN_kNm'])
- q=np.array(member['axes'])@np.array([0.,0.,-member['self_weight_kN_m']])
+ q=np.array(member['axes'])@np.array(member.get('distributed_load_global_kN_m',[0.,0.,-member['self_weight_kN_m']]))
  for F in member['segment_end_actions_kN_kNm']:
   fields={'N_kn':([F[0]*1000,q[0]],1000),'My_kNm':([F[4]*1e6,F[2]*1000,q[2]/2],1e6),'Mz_kNm':([-F[5]*1e6,F[1]*1000,q[1]/2],1e6),'Vy_kn':([F[1]*1000,q[1]],1000),'Vz_kn':([F[2]*1000,q[2]],1000),'T_kNm':([F[3]],1)}
   for key,(coeff,divisor) in fields.items():
@@ -24,7 +24,7 @@ def deformation_curve(member,analysis,point):
  """Sample the actual elastic displacement field, including released beams."""
  axes=np.array(member['axes']);D=np.array(member['segment_displacements_mm_rad'])[:,:3]@axes.T
  nseg=len(member['segment_end_actions_kN_kNm']);L=member['length_m']*1000;ell=L/nseg
- q=axes@np.array([0.,0.,-member['self_weight_kN_m']]);section=analysis['sections'][member['section_id']];E=analysis['materials'][member['material_id']]['E_MPa']
+ q=axes@np.array(member.get('distributed_load_global_kN_m',[0.,0.,-member['self_weight_kN_m']]));section=analysis['sections'][member['section_id']];E=analysis['materials'][member['material_id']]['E_MPa']
  origin=next(n['xyz_m'] for n in analysis['nodes'] if n['node_id']==member['i_node']);points=[]
  for k,F in enumerate(member['segment_end_actions_kN_kNm']):
   coefficients=[]

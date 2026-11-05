@@ -3,6 +3,8 @@
 'use strict';
 const noArgs={type:'object',properties:{},additionalProperties:false};
 const tools=[
+ {type:'function',function:{name:'analyze_office_case',description:'仅当前已载入办公楼完整荷载课程案例时使用，执行G/Q/W/水平地震及验算。不得将任意上传Excel静默替换为此案例。',parameters:noArgs}},
+ {type:'function',function:{name:'get_office_results',description:'读取当前办公楼完整荷载运行汇总或指定物理构件验算记录，未分析先调用analyze_office_case。',parameters:{type:'object',properties:{member_id:{type:'string'}},additionalProperties:false}}},
  {type:'function',function:{name:'analyze_excel_model',description:'对当前会话上传的Excel原始节点和杆件执行实际自重分析及已实现的验算。不会修改模型或补造其他荷载。用户要求分析Excel时调用。',parameters:noArgs}},
  {type:'function',function:{name:'get_excel_results',description:'读取当前Excel实际分析结果、控制构件、位移及缺项。可用member_id查询一根原始构件的全部验算。尚未分析时先调用analyze_excel_model。',parameters:{type:'object',properties:{member_id:{type:'string',description:'原始构件编号，可省略以查询汇总'}},additionalProperties:false}}},
  {type:'function',function:{name:'generate_engineering_package',description:'用户要求计算书或图纸时调用。Excel使用当前上传原模型，必要时先实际分析，保留FAIL/缺项并生成草稿；规则框架使用真实收敛报告。返回真实下载链接。',parameters:noArgs}}
@@ -54,7 +56,7 @@ async function readModel(response,onText){
 async function runChatAgent(o){
  const request=o.fetch||root.fetch.bind(root);const messages=o.messages.map(m=>({...m}));const outputs=[];let cached=null;let answer='';
  const emit=()=>o.onText?.(answer);
- const toolSummary=()=>outputs.map(r=>r.ok!==true?`操作未完成：${r.error||r.status}`:((r.operation==='excel_analysis'||r.operation==='excel_results')?`Excel${r.operation==='excel_analysis'?'分析':'结果'}：${r.status}；验算汇总 ${r.upstream_check_summary}；范围：${r.scope}。\n`:`工程成果状态：${r.status}；${r.draft?'草稿，保留缺项和限制':'请核对适用范围'}。\n`)+(r.artifacts||[]).map(a=>`[${a.name}](${a.url})`).join('\n')).join('\n\n');
+ const toolSummary=()=>outputs.map(r=>r.ok!==true?`操作未完成：${r.error||r.status}`:((r.operation==='office_analysis'||r.operation==='excel_analysis'||r.operation==='excel_results')?`${r.operation==='office_analysis'?'办公楼':r.operation==='excel_analysis'?'Excel分析':'Excel结果'}：${r.status}；验算汇总 ${r.upstream_check_summary}；范围：${r.scope}。\n`:`工程成果状态：${r.status}；${r.draft?'草稿，保留缺项和限制':'请核对适用范围'}。\n`)+(r.artifacts||[]).map(a=>`[${a.name}](${a.url})`).join('\n')).join('\n\n');
  for(let turn=0;turn<8;turn++){
   const response=await request(o.modelBase.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+o.token},signal:o.signal,body:JSON.stringify({model:o.model,stream:true,messages,tools,tool_choice:turn===7?'none':'auto'})});
   const message=await readModel(response,text=>{answer=text;emit()});answer=message.content||'';
@@ -66,7 +68,13 @@ async function runChatAgent(o){
    let result;
    try{
     const name=call.function.name;if(!call.id||!tools.some(t=>t.function.name===name))throw Error('不支持的工程工具');
-    const args=JSON.parse(call.function.arguments||'{}');if(!args||Array.isArray(args)||typeof args!=='object'||Object.keys(args).some(k=>name!=='get_excel_results'||k!=='member_id')||(args.member_id!==undefined&&typeof args.member_id!=='string'))throw Error('工具不接受模型自拟的输入或报告');
+    const args=JSON.parse(call.function.arguments||'{}');if(!args||Array.isArray(args)||typeof args!=='object'||Object.keys(args).some(k=>!['get_excel_results','get_office_results'].includes(name)||k!=='member_id')||(args.member_id!==undefined&&typeof args.member_id!=='string'))throw Error('工具不接受模型自拟的输入或报告');
+    if(name==='analyze_office_case'||name==='get_office_results'||(name==='generate_engineering_package'&&o.officeSession?.state().bundle)){
+     if(!o.officeSession?.state().bundle)throw Error('请先明确载入办公楼完整荷载课程案例，不替换Excel原模型');
+     const value=name==='generate_engineering_package'?await o.officeSession.generate({signal:o.signal}):name==='analyze_office_case'?await o.officeSession.analyze({signal:o.signal}):await o.officeSession.results(args);
+     result={...value,operation:name==='generate_engineering_package'?'office_exports':'office_analysis',status:value.status||'analysis_completed',scope:value.scope||'办公楼G/Q/W/水平地震，构造性能另交接',upstream_check_summary:value.upstream_check_summary||value.design_status};
+     outputs.push(result);messages.push({role:'tool',tool_call_id:call.id,content:JSON.stringify(result)});continue;
+    }
     if(name==='analyze_excel_model'||name==='get_excel_results'){
      if(!o.excelSession)throw Error('请先上传Excel模型');
      o.onStatus?.(name==='analyze_excel_model'?'正在分析Excel原始杆系…':'正在读取本次Excel验算结果…');

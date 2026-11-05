@@ -8,12 +8,12 @@ from steelmind_export.runtime import resolve_font
 from steelmind_export.cad import _new_doc, _viewport, _dimension, _text, _line, _render_pdf, _wrap
 
 
-def generate_explicit_cad(tables, analysis, output_dir, include_pdf=True, upstream_status='INCOMPLETE'):
+def generate_explicit_cad(tables, analysis, output_dir, include_pdf=True, upstream_status='INCOMPLETE',compact_marks=False):
     out = Path(output_dir); out.mkdir(parents=True, exist_ok=True)
     font, _ = resolve_font()
     nodes = {n['node_id']: n for n in analysis['nodes']}
     members = analysis['members']; sections = analysis['sections']
-    marks = {m['member_id']: m['member_id'] if len(m['member_id']) <= 10 else f'M{i:03d}' for i,m in enumerate(members,1)}
+    marks = {m['member_id']: m['member_id'] if not compact_marks and len(m['member_id']) <= 10 else f'M{i:03d}' for i,m in enumerate(members,1)}
     sheets, files, pdfs, errors, covered, section_sheets = [], [], [], [], set(), []
     project = next((str(r.get('value') or r.get('字段名称') or '原模型钢框架') for name,rows in tables.items() if name.lower()=='project' for r in rows if r.get('field_id')=='project_name'), '原模型钢框架')
     def frame(layout, title, scale=None, note=''):
@@ -83,9 +83,11 @@ def generate_explicit_cad(tables, analysis, output_dir, include_pdf=True, upstre
             p=nodes[m['i_node']]['xyz_m'];s=sections[m['section_id']];x,y=p[u]*1000,p[v]*1000;w,h=float(s['width_mm']),float(s['depth_mm'])
             axes=m['axes'];corners=[(x+db*axes[2][0]+dh*axes[1][0],y+db*axes[2][1]+dh*axes[1][1]) for db,dh in [(-w/2,-h/2),(w/2,-h/2),(w/2,h/2),(-w/2,h/2)]]
             e=model.add_lwpolyline(corners,close=True,dxfattribs={'layer':'S-OUTLINE'});source(e,m)
-            _text(model,marks[m['member_id']],x+5*scale,y+4*scale,2.5*scale,'S-TEXT');ids.append(m['member_id']);covered.add(m['member_id'])
+            label=_text(model,marks[m['member_id']],x-3*scale if compact_marks else x+5*scale,y-3*scale if compact_marks else y+4*scale,2.5*scale,'S-TEXT')
+            if compact_marks:label.set_placement((x-3*scale,y-3*scale),align=TextEntityAlignment.MIDDLE_RIGHT)
+            ids.append(m['member_id']);covered.add(m['member_id'])
         us=sorted({p[u]*1000 for p in points});vs=sorted({p[v]*1000 for p in points})
-        for a,b in zip(us,us[1:]):_dimension(model,expected,(a,v0*1000),(b,v0*1000),(a,v0*1000-9*scale),0,scale)
+        for a,b in zip(us,us[1:]):_dimension(model,expected,(a,v0*1000),(b,v0*1000),(a,v0*1000-(15 if compact_marks else 9)*scale),0,scale)
         for a,b in zip(vs,vs[1:]):_dimension(model,expected,(u0*1000,a),(u0*1000,b),(u0*1000-11*scale,a),90,scale)
         for i,x in enumerate(us,1):
             _line(model,(x,v0*1000-5*scale),(x,v1*1000+6*scale),'S-AXIS');_text(model,f'{"XYZ"[u]}{i}',x-2*scale,v1*1000+7*scale,2.5*scale,'S-TEXT')
@@ -98,9 +100,9 @@ def generate_explicit_cad(tables, analysis, output_dir, include_pdf=True, upstre
             if not any(flags):continue
             x,y=coord(n,u)*1000,coord(n,v)*1000
             for dx in (-3,0,3):_line(model,(x+dx*scale,y),(x+(dx-2)*scale,y-4*scale),'S-SUPPORT')
-            _text(model,''.join(map(str,flags)),x+4*scale,y-6*scale,2.5*scale,'S-TEXT')
+            _text(model,'固' if compact_marks and all(flags) else ''.join(map(str,flags)),x+4*scale,y-6*scale,2.5*scale,'S-TEXT')
         _viewport(l,(25,60,395,255),((u0+u1)*500,(v0+v1)*500),scale)
-        note='编号对应构件表；圆圈为两弯矩释放；支座六位=ux uy uz rx ry rz；轴序按实际坐标排序。'
+        note='编号对应构件表；圆圈为两弯矩释放；固=六自由度固定；轴序按实际坐标排序。' if compact_marks else '编号对应构件表；圆圈为两弯矩释放；支座六位=ux uy uz rx ry rz；轴序按实际坐标排序。'
         if kind=='plan':note='柱符号取该标高下侧真实构件；构件编号见表；轴序按实际坐标排序。'
         frame(l,title,scale,note)
         save(d,f'{number:02d}_{"XY平面" if kind=="plan" else "XZ立面" if u==0 else "YZ立面"}_{value:g}',kind,[e['expected_mm'] for e in expected],ids,scale)

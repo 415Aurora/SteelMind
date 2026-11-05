@@ -1,0 +1,18 @@
+{
+  "scope": "reference_based_course_office_superstructure",
+  "input_sha256": "b180904906955454d0585b3004f74f1eee84c4f3ee40b9835379da213c4736de",
+  "nodes": 308,
+  "calculation_members": 540,
+  "physical_members": 372,
+  "design_status": "PASS",
+  "building_status": "EXTERNAL_VERIFICATION_PENDING",
+  "check_summary": {
+    "PASS": 3554,
+    "NA": 114
+  },
+  "mass_t": 2825.17790710371,
+  "G_kN": 24401.780922698683,
+  "first_period_s": 0.45283405808083527,
+  "maximum_theta_upper_bound": 0.00731578359566067,
+  "max_story_drift_mm": 2.137650307985201
+}
