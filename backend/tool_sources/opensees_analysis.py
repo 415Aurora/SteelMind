@@ -15,7 +15,7 @@ from tools.structural_calc import _get_section
 
 
 # OpenSeesPy 使用进程级全局模型状态；避免并发请求 wipe/建模互相覆盖。
-_OPENSEES_LOCK = threading.RLock()
+from solver_lock import OPENSEES_LOCK as _OPENSEES_LOCK
 
 
 def _ops(name, *args):

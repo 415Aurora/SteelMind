@@ -98,7 +98,7 @@ def normalize_spatial_report(report):
  return {'schema_version':SCHEMA,'project_name':str(report.get('project_name') or '三维钢框架方案'),'source_run_id':str(report.get('run_id') or ''),
   'units':{'coordinates':'m','drawing':'mm','displacement':'mm','rotation':'rad','force':'kN','moment':'kN·m','stress':'MPa'},
   'axis_convention':'Global Y up; local x=I→J; local y=vecXZ×x, local z=x×y; end_actions_local are nodal actions on the member, not signed section-force diagrams.',
-  'parameters':copy.deepcopy(p),'nodes':nodes,'members':members,'supports':supports,'reactions':reactions,'sections':sections,
+  'default_assumptions':copy.deepcopy(report.get('default_assumptions') or (report.get('request') or {}).get('default_assumptions') or []),'parameters':copy.deepcopy(p),'nodes':nodes,'members':members,'supports':supports,'reactions':reactions,'sections':sections,
   'checks':checks,'iterations':copy.deepcopy(report.get('iterations') or []),'summary':{k:v for k,v in result.items() if k not in ('members','model_nodes','supports','support_reactions')},
   'draft_reasons':list(dict.fromkeys(reasons)),'warnings':warnings,'source':'OpenSees final analysis + upstream member checks; normalized without independent recalculation'}
 

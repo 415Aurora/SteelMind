@@ -419,6 +419,29 @@ def run_design_workflow_stream(request: WorkflowRequest) -> StreamingResponse:
     )
 
 
+@app.post("/workflow/explicit-model/visualize")
+def visualize_explicit_workbook(request: WorkflowRequest) -> dict[str, Any]:
+    from explicit_viewer import publish_viewer
+    try:
+        return publish_viewer(request.payload.get("tables") or {}, include_analysis=request.payload.get("include_analysis") is True)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@app.post("/workflow/explicit-model/run")
+def run_explicit_workbook(request: WorkflowRequest) -> dict[str, Any]:
+    from explicit_model import run_explicit_model
+    from explicit_outputs import publish_explicit_outputs
+    tables = request.payload.get("tables") or {}
+    result = run_explicit_model(tables)
+    if result.get("ok"):
+        result["artifacts"] = publish_explicit_outputs(tables, result)
+        result["file_generation_status"] = "partial" if any(a["name"] == "PDF转换缺项.json" for a in result["artifacts"]) else "success"
+        from explicit_viewer import publish_viewer
+        result["visualization"] = publish_viewer(tables, result=result)
+    return result
+
+
 @app.post("/workflow/section-iteration/run")
 def run_section_iteration(request: WorkflowRequest) -> dict[str, Any]:
     """Bounded OpenSees → member checks → section update/re-analysis loop."""

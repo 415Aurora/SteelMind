@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from langchain_core.runnables import RunnableLambda
 from analysis_input import analysis_shape_errors
+from request_defaults import apply_request_defaults
 
 
 _tool_trace_callback: ContextVar[Callable[[dict[str, Any]], None] | None] = ContextVar("steel_tool_trace_callback", default=None)
@@ -446,7 +447,7 @@ def run_workflow(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _iteration_input(state: dict[str, Any]) -> dict[str, Any]:
-    req = state["request"]
+    req = apply_request_defaults(state["request"])
     shape_errors = analysis_shape_errors(req)
     if shape_errors:
         return {"status": "needs_input", "errors": shape_errors}
@@ -680,6 +681,17 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
             # current 3D analysis forces. The next cycle re-analyzes the updated
             # whole frame before the choice can be accepted as final.
             candidate_list = (req.get("candidate_sections") or {}).get(role, [])
+            # Once downsizing has made the re-analyzed frame fail, stabilize:
+            # preserve passing members and grow failing ones monotonically.
+            # Repeated global downsizing otherwise oscillates with force redistribution.
+            if any(row.get("failed_before_resize") for row in history) or failed_ids:
+                from section_catalog import section_record
+                current_area = (section_record(current) or {}).get("area_mm2", 0)
+                candidate_list = [current] if current_result.get("passed") else [
+                    name for name in candidate_list
+                    if (section_record(name) or {}).get("area_mm2", 0) >= current_area]
+                if not candidate_list:
+                    candidate_list = [current]
             passing_candidate: tuple[str, dict[str, Any]] | None = None
             last_candidate: tuple[str, dict[str, Any]] | None = None
             for candidate in candidate_list:
@@ -828,7 +840,8 @@ def _section_iteration_loop(state: dict[str, Any]) -> dict[str, Any]:
               "member_checks": final_checks, "analysis": final_analysis, "request": req,
               "run_id": run_id,
               "visualization": vis_result, "artifacts": artifacts, "errors": state.get("errors", []),
-              "artifact_errors": artifact_errors,
+              "artifact_errors": artifact_errors, "default_assumptions": req.get("default_assumptions", []),
+              "optimization_notice": "截面优化在出现重分析失败后启用稳定保护：保留已通过构件，失败构件只扩大截面；结果不保证全局最小重量。",
               "engineering_notice": "本功能为三维线弹性单静力工况的方案级迭代原型。截面主轴方向由局部坐标约定；H截面扭转常数J采用薄壁近似；内力取分段端部包络，计算长度暂按构件几何长度。当前 GB 50017 验算器仍含筛查性简化，且扭转载荷效应未纳入规范验算。通过仅表示当前输入和已实现验算项未发现失败，不能作为设计签审或施工依据。"}
     if converged_checked:
         try:
@@ -916,7 +929,7 @@ def run_section_iteration(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
-    req = request
+    req = apply_request_defaults(request)
     shape_errors = analysis_shape_errors(req)
     if shape_errors:
         return {"ok": False, "status": "needs_input", "errors": shape_errors, "report": {"validation": {"ok": False, "errors": shape_errors}}}
@@ -1003,6 +1016,7 @@ def _information_selection(request: dict[str, Any]) -> dict[str, Any]:
         },
         "notice": "本流程为初算和截面初选。初选验算使用当前 OpenSees 内力，不会因初选截面变化重新分配内力；请将结果送入截面迭代与优化重新建模验证。",
     }
+    report["default_assumptions"] = req.get("default_assumptions", [])
     return {"ok": True, "status": "preliminary", "report": report}
 
 
@@ -1014,6 +1028,21 @@ def run_information_selection(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _engineering_outputs(payload: dict[str, Any]) -> dict[str, Any]:
+    if "explicit_tables" in payload:
+        from explicit_model import run_explicit_model
+        from explicit_outputs import publish_explicit_outputs
+        tables = payload["explicit_tables"]
+        trace_id = uuid4().hex
+        _emit_tool_trace({"type": "tool_start", "trace_id": trace_id, "tool": "explicit_selfweight_exports", "input": {"scope": "原始杆系框架自重，规范验算未完成"}})
+        result = run_explicit_model(tables)
+        if not result.get("ok"):
+            _emit_tool_trace({"type": "tool_result", "trace_id": trace_id, "tool": "explicit_selfweight_exports", "ok": False, "output": result})
+            return {"ok": False, "status": result["status"], "errors": result.get("errors", [])}
+        artifacts = publish_explicit_outputs(tables, result)
+        status = "partial" if any(a["name"] == "PDF转换缺项.json" for a in artifacts) else "success"
+        package = {"ok": True, "generation_status": status, "analysis_status": "analysis_completed", "data_validation_status": "valid", "draft": True, "upstream_check_summary": result.get("upstream_check_summary", "INCOMPLETE"), "code_check_summary": result.get("code_checks", {}).get("summary", {}), "draft_reasons": [result["notice"]], "artifacts": artifacts}
+        _emit_tool_trace({"type": "tool_result", "trace_id": trace_id, "tool": "explicit_selfweight_exports", "ok": True, "output": package})
+        return {"ok": True, "status": status, "artifacts": {"engineering_package": package}}
     report = payload.get("final_report") or payload.get("report") or {}
     if not report.get("converged") or report.get("status") != "converged":
         return {"ok": False, "status": "not_converged", "errors": ["仅接受截面迭代工作流已收敛的最终报告"]}

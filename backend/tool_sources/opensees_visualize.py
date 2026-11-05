@@ -287,6 +287,9 @@ def _build_html(model):
         "document.getElementById('forceMode').onchange=e=>{forceMode=e.target.value;updateLegend();draw()};"
         "document.getElementById('deformScale').oninput=e=>{document.getElementById('deformScaleValue').textContent=e.target.value+'×';draw()};"
         "new ResizeObserver(resize).observe(canvas);resize();")
+    document = document.replace("color=memberColor(item,status,baseColor)", "color=resultMemberColor(item,status,baseColor)")
+    legend_js = Path(__file__).with_name("viewer_result_legend.js").read_text(encoding="utf-8")
+    document = document.replace("</script>", legend_js + "\n</script>", 1)
     return document
 
 

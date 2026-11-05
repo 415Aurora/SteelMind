@@ -49,6 +49,7 @@ def write_workbook(bundle,path):
   ws.sheet_properties.pageSetUpPr.fitToPage=True;ws.page_setup.orientation='landscape';ws.page_setup.paperSize=ws.PAPERSIZE_A3;ws.page_setup.fitToWidth=1;ws.page_setup.fitToHeight=0;ws.print_title_rows='1:1'
   return ws
  sheet('成果说明',['项目','内容'],[['项目名称',bundle['project_name']],['文件状态','生成与结构验算分别报告'],['上游验算汇总','INCOMPLETE'],['成果范围','三维方案草稿'],['坐标/单位',bundle['units']],['正号',bundle['axis_convention']]]+[['缺项及限制',r] for r in bundle['draft_reasons']])
+ sheet('默认值与假定',['字段','实际采用值','原因','版本'],[[a['path'],a['value'],a['reason'],a['profile']] for a in bundle.get('default_assumptions',[])])
  sheet('节点位移',['节点','X(m)','Y(m)','Z(m)','ux(mm)','uy(mm)','uz(mm)','rx(rad)','ry(rad)','rz(rad)'],[[n['node_id']]+[n[k] for k in ('x_m','y_m','z_m')+DOFS] for n in bundle['nodes']])
  sheet('构件模型',['构件','I节点','J节点','方向','截面','长度(m)','局部轴'],[[m['member_id'],m['node_i'],m['node_j'],m['member_axis'],m['section'],m['span_m'],m['local_axes']] for m in bundle['members']])
  sheet('支座与反力',['节点','ux约束','uy约束','uz约束','rx约束','ry约束','rz约束']+list(REACTIONS),[[s['node_id']]+[s[k] for k in ('ux','uy','uz','rx','ry','rz')]+[next(r for r in bundle['reactions'] if r['node_id']==s['node_id'])[k] for k in REACTIONS] for s in bundle['supports']])
@@ -81,6 +82,9 @@ def write_book(bundle,path):
  doc.add_heading('1 工程概况与适用范围',level=1)
  for reason in bundle['draft_reasons']:doc.add_paragraph(reason)
  doc.add_heading('2 模型及材料截面',level=1)
+ if bundle.get('default_assumptions'):
+  doc.add_paragraph('以下参数未完整填写，采用教学默认值或明确的逐层/逐跨均布假定；非工程实测参数。')
+  _table(doc,['字段','采用值','原因'],[[a['path'],text(a['value']),a['reason']] for a in bundle['default_assumptions']],widths=[7,4,5])
  g=bundle['parameters']['geometry'];doc.add_paragraph(f"X向 {g.get('bays_x',g.get('bays'))} 跨，Z向 {g.get('bays_z')} 跨，{g['stories']} 层；{len(bundle['nodes'])} 个实体节点，{len(bundle['members'])} 根实体构件。全局 Y 轴竖向，X/Z 为平面方向。")
  doc.add_paragraph('几何坐标 m；位移 mm；转角 rad；力 kN；力矩 kN·m；应力 MPa。DXF模型空间按 mm 1:1。')
  _table(doc,['输入项','已提交值'],[[k,text(v)] for k,v in bundle['parameters'].get('geometry',{}).items()],widths=[5,11])
